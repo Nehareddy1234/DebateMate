@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base ── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #080c14;
+    --panel: #0d1424;
+    --border: #1e2d4a;
+    --blue: #38bdf8;
+    --green: #4ade80;
+    --gold: #fbbf24;
+    --muted: #94a3b8;
+    --surface: #111827;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg);
+    color: #e2e8f0;
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+}
+
+/* ── Glass card ── */
+.glass {
+    background: rgba(13, 20, 36, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(30, 45, 74, 0.8);
+    border-radius: 16px;
+}
+
+/* ── Sticky note card ── */
+.note-card {
+    background: linear-gradient(135deg, #1a253d 0%, #111827 100%);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 10px;
+    padding: 10px 14px;
+    animation: slideUp 0.35s ease-out forwards;
+}
+
+/* ── Coaching tip banner ── */
+.tip-banner {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(56, 189, 248, 0.04));
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 10px;
+    padding: 10px 14px;
+    animation: slideUp 0.35s ease-out forwards;
+}
+
+/* ── Setup screen ── */
+.setup-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 30%, #0f1f3d 0%, var(--bg) 70%);
+}
+
+/* ── Badge ── */
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.role-badge.pro {
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--green);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.role-badge.con {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--blue);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* ── Glow ring around sphere ── */
+.sphere-ring {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    transition: box-shadow 0.4s ease, opacity 0.4s ease;
+}
+
+.sphere-ring.ai-speaking {
+    box-shadow: 0 0 80px 30px rgba(56, 189, 248, 0.2);
+}
+
+.sphere-ring.user-speaking {
+    box-shadow: 0 0 80px 30px rgba(74, 222, 128, 0.2);
+}
+
+/* ── Transcript overlay ── */
+.transcript-bar {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+    transition: opacity 0.3s ease;
+}
+
+/* ── Pulse animation for mic button ── */
+@keyframes mic-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5);
+    }
+
+    50% {
+        box-shadow: 0 0 0 14px rgba(74, 222, 128, 0);
+    }
+}
+
+.mic-active {
+    animation: mic-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
