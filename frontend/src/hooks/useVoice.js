@@ -1,26 +1,43 @@
 /**
- * useVoice.js (Diagnostic Version)
+ * useVoice.js (V6 — Deepgram Flux / Aura)
  *
- * Explicit 16kHz PCM capture settings applied. Uses RecordRTC approach but with 
- * native AudioContext ScriptProcessor to guarantee Int16 PCM over WS.
+ * Key changes:
+ *  - Handshake sends { topic, user_side, first_speaker: "AI" | "User" }
+ *  - Mic capture pinned to 16 kHz Linear16 PCM; if the browser ignores the
+ *    sampleRate constraint (e.g. Safari), audio is linearly downsampled
+ *    to 16 kHz before being sent over the WebSocket.
+ *  - Typed audio framing from the server:
+ *      audio_start (JSON metadata) -> binary PCM chunks -> audio_end
+ *    so playback state tracks the AI speech window precisely.
+ *  - Live captions: partial_transcript (Deepgram "Update") vs final
+ *    transcript turns — routed to App.jsx via onMessage.
  */
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 
 const WS_URL = 'ws://localhost:8000/ws/debate'
 const MIC_SAMPLE_RATE = 16_000
-const CHUNK_INTERVAL_MS = 250          // send PCM chunks every 250 ms
+const PLAY_SAMPLE_RATE = 24_000
+const CHUNK_INTERVAL_MS = 250
 
 export function useVoice({ onMessage }) {
     const wsRef = useRef(null)
-    const audioCtxRef = useRef(null)
+
+    const micCtxRef = useRef(null)
+    const playCtxRef = useRef(null)
+
     const analyserRef = useRef(null)
     const micStreamRef = useRef(null)
     const processorRef = useRef(null)
     const chunkBufRef = useRef([])
     const intervalRef = useRef(null)
-    const playQueueRef = useRef([])
-    const isPlayingRef = useRef(false)
+
+    // Gapless TTS playback: chunks are scheduled back-to-back on the
+    // AudioContext clock. Waiting for onended between chunks (old approach)
+    // inserts underrun gaps that make the AI voice sound distorted/robotic.
+    const nextStartTimeRef = useRef(0)
+    const pendingSourcesRef = useRef(0)
+    const streamEndedRef = useRef(false)
 
     const [connected, setConnected] = useState(false)
     const [micActive, setMicActive] = useState(false)
@@ -29,7 +46,7 @@ export function useVoice({ onMessage }) {
 
     // ── WebSocket setup ───────────────────────────────────────────
 
-    const connect = useCallback(({ topic, user_role }) => {
+    const connect = useCallback(({ topic, user_side, user_role, first_speaker = 'User' }) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             console.log('[WS] Already open, skipping connect.')
             return
@@ -37,29 +54,59 @@ export function useVoice({ onMessage }) {
 
         console.log(`[WS] Connecting to ${WS_URL}...`)
         const ws = new WebSocket(WS_URL)
-        ws.binaryType = 'arraybuffer' // Fix 1: Ensure WebSockets receives bytes natively
+        ws.binaryType = 'arraybuffer'
         wsRef.current = ws
 
         ws.onopen = () => {
             console.log('[WS] Connected successfully.')
             setConnected(true)
-            const payload = { type: 'start_debate', topic, user_role }
-            console.log('[WS] Sending init payload:', payload)
+            // SETUP HANDSHAKE — first JSON metadata frame the backend expects:
+            // { topic, user_side ("Pro"/"Con"), first_speaker ("AI"/"User") }
+            const payload = {
+                type: 'start_debate',
+                topic,
+                user_side: user_side || user_role || 'Pro',
+                first_speaker: String(first_speaker).toLowerCase() === 'ai' ? 'AI' : 'User',
+            }
+            console.log('[WS] Sending handshake:', payload)
             ws.send(JSON.stringify(payload))
         }
 
         ws.onmessage = (event) => {
             if (event.data instanceof ArrayBuffer) {
-                console.log(`[WS] Received TTS AUDIO chunk: ${event.data.byteLength} bytes`)
+                // Binary frame between audio_start/audio_end = Linear16 PCM
                 _queueAudio(event.data)
-            } else {
-                try {
-                    const msg = JSON.parse(event.data)
-                    console.log('[WS] Received JSON:', msg)
-                    onMessage?.(msg)
-                } catch (e) {
-                    console.warn('[WS] Non-JSON text:', event.data)
+                return
+            }
+
+            try {
+                const msg = JSON.parse(event.data)
+
+                switch (msg.type) {
+                    // ── Typed audio framing (TTS window) ──
+                    case 'audio_start':
+                    case 'ai_speaking_start':   // legacy alias
+                        // New TTS window — reset scheduling state
+                        nextStartTimeRef.current = 0
+                        streamEndedRef.current = false
+                        pendingSourcesRef.current = 0
+                        setIsAiSpeaking(true)
+                        break
+                    case 'audio_end':
+                    case 'ai_speaking_end':     // legacy alias
+                        // Stream finished; keep "speaking" until every
+                        // scheduled source has drained to avoid UI flicker
+                        streamEndedRef.current = true
+                        if (pendingSourcesRef.current === 0) setIsAiSpeaking(false)
+                        break
+                    default:
+                        // partial_transcript (live captions), transcript
+                        // (final turns), agent_response (rebuttal /
+                        // coaching_tip / sticky_note), errors, etc.
+                        onMessage?.(msg)
                 }
+            } catch (e) {
+                console.warn('[WS] Non-JSON text:', event.data)
             }
         }
 
@@ -67,6 +114,7 @@ export function useVoice({ onMessage }) {
             console.log(`[WS] Closed. Code=${e.code}, Reason=${e.reason}`)
             setConnected(false)
             setMicActive(false)
+            setIsAiSpeaking(false)
         }
         ws.onerror = (e) => console.error('[WS] Connection error:', e)
     }, [onMessage])
@@ -74,7 +122,15 @@ export function useVoice({ onMessage }) {
     const disconnect = useCallback(() => {
         console.log('[WS] Disconnecting manually...')
         wsRef.current?.close()
-        _stopMic()
+        _stopMicInternal()
+    }, [])
+
+    const sendMessage = useCallback((json) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify(json))
+        } else {
+            console.warn('[WS] sendMessage called but WS not open')
+        }
     }, [])
 
     // ── Mic capture ───────────────────────────────────────────────
@@ -84,16 +140,19 @@ export function useVoice({ onMessage }) {
         console.log('[Mic] Requesting microphone access...')
 
         try {
-            if (!audioCtxRef.current) {
-                console.log(`[Mic] Creating AudioContext at ${MIC_SAMPLE_RATE}Hz`)
-                audioCtxRef.current = new AudioContext({ sampleRate: MIC_SAMPLE_RATE })
+            if (!micCtxRef.current) {
+                console.log(`[Mic] Creating mic AudioContext at ${MIC_SAMPLE_RATE}Hz`)
+                micCtxRef.current = new AudioContext({ sampleRate: MIC_SAMPLE_RATE })
             }
-            if (audioCtxRef.current.state === 'suspended') {
-                await audioCtxRef.current.resume()
+            if (micCtxRef.current.state === 'suspended') {
+                await micCtxRef.current.resume()
                 console.log('[Mic] AudioContext resumed')
             }
 
-            const ctx = audioCtxRef.current
+            const ctx = micCtxRef.current
+            if (ctx.sampleRate !== MIC_SAMPLE_RATE) {
+                console.warn(`[Mic] Browser ignored sampleRate constraint — context runs at ${ctx.sampleRate}Hz, PCM will be downsampled to ${MIC_SAMPLE_RATE}Hz in software`)
+            }
 
             if (!analyserRef.current) {
                 const analyser = ctx.createAnalyser()
@@ -101,8 +160,7 @@ export function useVoice({ onMessage }) {
                 analyserRef.current = analyser
             }
 
-            // Fix 1: Force mono, 16kHz explicit constraint
-            console.log('[Mic] Calling getUserMedia constraints: channelCount=1, sampleRate=16000')
+            console.log('[Mic] Calling getUserMedia: channelCount=1, sampleRate=16000')
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     sampleRate: MIC_SAMPLE_RATE,
@@ -118,39 +176,53 @@ export function useVoice({ onMessage }) {
             const source = ctx.createMediaStreamSource(stream)
             source.connect(analyserRef.current)
 
-            // ScriptProcessorNode to capture raw PCM
             const processor = ctx.createScriptProcessor(4096, 1, 1)
             processorRef.current = processor
 
             processor.onaudioprocess = (e) => {
-                const float32 = e.inputBuffer.getChannelData(0)
+                let float32 = e.inputBuffer.getChannelData(0)
 
-                // Convert to Int16 PCM (Expectation for AssemblyAI pcm_s16le)
+                // Guarantee 16 kHz PCM even if the browser ignored the
+                // sampleRate constraint (ctx ran at 44.1/48 kHz instead)
+                if (ctx.sampleRate !== MIC_SAMPLE_RATE) {
+                    float32 = _downsample(float32, ctx.sampleRate, MIC_SAMPLE_RATE)
+                }
+
+                // Float32 [-1, 1] -> Linear16 PCM for Deepgram Flux
                 const int16 = new Int16Array(float32.length)
                 for (let i = 0; i < float32.length; i++) {
-                    // clamp
-                    int16[i] = Math.max(-32768, Math.min(32767, float32[i] * 32768))
+                    int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)))
                 }
                 chunkBufRef.current.push(int16.buffer)
 
-                // Detect user speaking via RMS
                 let sum = 0
                 for (let i = 0; i < float32.length; i++) sum += float32[i] ** 2
                 const rms = Math.sqrt(sum / float32.length)
                 setIsUserSpeaking(rms > 0.012)
             }
 
+            // ScriptProcessor must stay wired into the graph to fire, but the
+            // mic must NOT reach the speakers — route it through a zero-gain
+            // node (direct destination connection causes audible feedback).
+            const silentSink = ctx.createGain()
+            silentSink.gain.value = 0
             source.connect(processor)
-            processor.connect(ctx.destination)
+            processor.connect(silentSink)
+            silentSink.connect(ctx.destination)
 
-            // Send chunks on interval
+            let loggedFirstChunk = false
             intervalRef.current = setInterval(() => {
                 if (!chunkBufRef.current.length) return
                 if (wsRef.current?.readyState !== WebSocket.OPEN) return
 
                 const merged = _mergeBuffers(chunkBufRef.current)
                 chunkBufRef.current = []
-                wsRef.current.send(merged)
+                wsRef.current.send(merged)   // Linear16 PCM binary frame
+
+                if (!loggedFirstChunk) {
+                    loggedFirstChunk = true
+                    console.log(`[Mic] First PCM chunk sent: ${merged.byteLength} bytes (${MIC_SAMPLE_RATE}Hz linear16 mono)`)
+                }
             }, CHUNK_INTERVAL_MS)
 
             console.log('[Mic] Processing started successfully')
@@ -163,71 +235,83 @@ export function useVoice({ onMessage }) {
 
     const stopMic = useCallback(() => {
         console.log('[Mic] Stopping mic...')
-        _stopMic()
+        _stopMicInternal()
         setMicActive(false)
+        setIsUserSpeaking(false)
     }, [])
 
-    function _stopMic() {
+    function _stopMicInternal() {
         clearInterval(intervalRef.current)
         processorRef.current?.disconnect()
         micStreamRef.current?.getTracks().forEach((t) => t.stop())
         processorRef.current = null
         micStreamRef.current = null
+        chunkBufRef.current = []
     }
 
-    // ── Audio playback ────────────────────────────────────────────
+    // ── Audio playback (24000Hz — Deepgram Aura-2 linear16 PCM) ──
 
     async function _queueAudio(arrayBuffer) {
-        playQueueRef.current.push(arrayBuffer)
-        if (!isPlayingRef.current) _playNext()
-    }
-
-    async function _playNext() {
-        if (!playQueueRef.current.length) {
-            isPlayingRef.current = false
-            setIsAiSpeaking(false)
-            return
+        // Decode one PCM chunk and schedule it immediately after the
+        // previously scheduled chunk on the AudioContext clock — this is
+        // what makes the streamed voice gapless.
+        if (!playCtxRef.current) {
+            playCtxRef.current = new AudioContext({ sampleRate: PLAY_SAMPLE_RATE })
         }
-        isPlayingRef.current = true
-        setIsAiSpeaking(true)
-
-        const ctx = audioCtxRef.current || new AudioContext({ sampleRate: 22050 })
-        if (!audioCtxRef.current) audioCtxRef.current = ctx
-
+        const ctx = playCtxRef.current
         if (ctx.state === 'suspended') {
             await ctx.resume()
         }
 
-        const rawBuffer = playQueueRef.current.shift()
-
         try {
-            // Decode pcm_s16le to Float32
-            const validLength = Math.floor(rawBuffer.byteLength / 2) * 2;
-            const int16 = new Int16Array(rawBuffer, 0, validLength / 2);
+            const validLength = Math.floor(arrayBuffer.byteLength / 2) * 2
+            if (!validLength) return
+            const int16 = new Int16Array(arrayBuffer, 0, validLength / 2)
             const float32 = new Float32Array(int16.length)
             for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768
 
-            const audioBuffer = ctx.createBuffer(1, float32.length, 22050)
+            const audioBuffer = ctx.createBuffer(1, float32.length, PLAY_SAMPLE_RATE)
             audioBuffer.copyToChannel(float32, 0)
 
             const source = ctx.createBufferSource()
             source.buffer = audioBuffer
-
-            if (analyserRef.current) source.connect(analyserRef.current)
             source.connect(ctx.destination)
 
+            // Back-to-back scheduling: never earlier than "now + safety",
+            // never overlapping the previous chunk.
+            const startTime = Math.max(ctx.currentTime + 0.02, nextStartTimeRef.current)
+            nextStartTimeRef.current = startTime + audioBuffer.duration
+
+            pendingSourcesRef.current++
             source.onended = () => {
-                console.log('[Playback] Sentence finished.')
-                _playNext()
+                pendingSourcesRef.current--
+                if (pendingSourcesRef.current === 0 && streamEndedRef.current) {
+                    setIsAiSpeaking(false)
+                }
             }
-            source.start()
+            source.start(startTime)
         } catch (err) {
             console.error('[Playback] Error decoding TTS audio:', err)
-            _playNext()
         }
     }
 
     // ── Helpers ───────────────────────────────────────────────────
+
+    /** Linear-interpolation downsample (e.g. 48 kHz -> 16 kHz). */
+    function _downsample(buffer, fromRate, toRate) {
+        if (fromRate <= toRate) return buffer
+        const ratio = fromRate / toRate
+        const newLength = Math.floor(buffer.length / ratio)
+        const result = new Float32Array(newLength)
+        for (let i = 0; i < newLength; i++) {
+            const pos = i * ratio
+            const idx = Math.floor(pos)
+            const frac = pos - idx
+            const next = Math.min(idx + 1, buffer.length - 1)
+            result[i] = buffer[idx] * (1 - frac) + buffer[next] * frac
+        }
+        return result
+    }
 
     function _mergeBuffers(buffers) {
         const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0)
@@ -242,7 +326,8 @@ export function useVoice({ onMessage }) {
 
     useEffect(() => () => {
         disconnect()
-        audioCtxRef.current?.close()
+        micCtxRef.current?.close()
+        playCtxRef.current?.close()
     }, [disconnect])
 
     return {
@@ -250,6 +335,7 @@ export function useVoice({ onMessage }) {
         disconnect,
         startMic,
         stopMic,
+        sendMessage,
         connected,
         micActive,
         isUserSpeaking,
