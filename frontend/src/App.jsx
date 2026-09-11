@@ -1,23 +1,8 @@
 /**
- * App.jsx — AI Debate Coach (V4)
+ * App.jsx — AI Debate Coach
  *
- * Layout (debate view):
- *   ┌──────────────────────────────────────────────────────┐
- *   │  Header Bar                                          │
- *   │    ┌───────────────────────────┐ ┌────────────────┐  │
- *   │    │   Sphere + notes (center) │ │ Transcript     │  │
- *   │    │   Mic / Help / State      │ │ Panel (right)  │  │
- *   │    └───────────────────────────┘ └────────────────┘  │
- *   │  Live Transcript Overlay (fixed bottom of center)    │
- *   └──────────────────────────────────────────────────────┘
- *
- * Fixes applied:
- *   - agent_response handled → AI text added to transcript + notes/tips updated
- *   - first_speaker forwarded to WS (AI or User)
- *   - Help Me button → sends help_request over WS
- *   - Save Transcript → downloads .txt + optionally POSTs to server
- *   - Full transcript stored (not just last 20) via fullTranscriptRef
- *   - AI text added to transcript panel when agent_response arrives
+ * Thoughtful, human-crafted arena layout with clean typography,
+ * topic organizer, and seamless vocal controls.
  */
 
 import { useState, useCallback, useRef, lazy, Suspense } from 'react'
@@ -31,30 +16,45 @@ import LandingPage from './components/LandingPage'
 import { useAuth } from './hooks/useAuth'
 import { useVoice } from './hooks/useVoice'
 
-// three.js is heavy — split it out of the main chunk and load it only when
-// the debate view renders.
 const SphereVisualizer = lazy(() => import('./components/SphereVisualizer'))
 
-// ── Setup screen ──────────────────────────────────────────────
-
-const SAMPLE_TOPICS = [
-    'AI will create more jobs than it destroys',
-    'Social media does more harm than good',
-    'Universal Basic Income should be implemented globally',
-    'Space exploration is worth the cost',
-    'Cryptocurrencies should replace traditional banking',
+const TOPIC_CATEGORIES = [
+    {
+        name: 'Technology & AI',
+        topics: [
+            'AI will create more net new jobs than it displaces',
+            'Autonomous AI systems should not be used in critical military decisions',
+            'Open-source AI models pose a net risk to global safety',
+        ],
+    },
+    {
+        name: 'Society & Governance',
+        topics: [
+            'Social media platforms do more harm to public discourse than good',
+            'Universal Basic Income is necessary in an automated economy',
+            'Standardized testing should be eliminated from university admissions',
+        ],
+    },
+    {
+        name: 'Economics & Work',
+        topics: [
+            'Remote work delivers higher long-term productivity than in-person mandates',
+            'Cryptocurrencies should not replace central bank backed currencies',
+            'Deep space exploration is worth the multi-billion dollar public investment',
+        ],
+    },
 ]
 
 function SetupScreen({ onStart }) {
-    const [topic, setTopic] = useState('')
+    const [selectedCategory, setSelectedCategory] = useState(0)
+    const [topic, setTopic] = useState(TOPIC_CATEGORIES[0].topics[0])
     const [role, setRole] = useState('Pro')
     const [firstSpeaker, setFirstSpeaker] = useState('ai')
     const [custom, setCustom] = useState(false)
+    const [customTopic, setCustomTopic] = useState('')
 
     const handleStart = () => {
-        const finalTopic = topic.trim() || SAMPLE_TOPICS[0]
-        // Handshake contract: topic, user_side ("Pro"/"Con"),
-        // first_speaker ("AI"/"User")
+        const finalTopic = custom ? customTopic.trim() || 'Should AI replace human coaches?' : topic
         onStart({
             topic: finalTopic,
             user_side: role,
@@ -63,168 +63,158 @@ function SetupScreen({ onStart }) {
     }
 
     return (
-        <div className="setup-container" style={{ padding: '24px' }}>
-            {/* Logo */}
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                <div
-                    style={{
-                        fontSize: '2.8rem',
-                        fontWeight: 800,
-                        background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        letterSpacing: '-0.02em',
-                        lineHeight: 1.1,
-                    }}
-                >
-                    DebateMate
-                </div>
-                <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '8px' }}>
-                    Your real-time voice sparring partner, powered by Gemini
+        <div className="min-h-full human-bg p-6 sm:p-10 flex flex-col items-center justify-center selection:bg-sky-500/20">
+            {/* Header */}
+            <div className="text-center mb-8">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100">
+                    Set up your debate round
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-md mx-auto">
+                    Pick a motion, choose your position, and practice against an AI opponent that argues back.
                 </p>
             </div>
 
-            {/* Card */}
-            <div
-                className="glass"
-                style={{ width: '100%', maxWidth: '520px', padding: '32px' }}
-            >
-                {/* Topic */}
-                <div style={{ marginBottom: '24px' }}>
-                    <label style={labelStyle}>Debate Topic</label>
+            {/* Setup Box */}
+            <div className="w-full max-w-xl human-panel p-6 sm:p-7 border border-white/[0.08]">
+                {/* 1. Motion Selection */}
+                <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-semibold text-slate-300">
+                            1. Select Motion
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => { setCustom(!custom); if (!custom) setCustomTopic('') }}
+                            className="text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors"
+                        >
+                            {custom ? 'Choose from list' : '+ Custom motion'}
+                        </button>
+                    </div>
 
                     {!custom ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                            {SAMPLE_TOPICS.map((t) => (
-                                <button
-                                    key={t}
-                                    onClick={() => setTopic(t)}
-                                    style={{
-                                        ...topicBtnStyle,
-                                        borderColor: topic === t ? '#38bdf8' : 'rgba(30,45,74,0.8)',
-                                        background: topic === t ? 'rgba(56,189,248,0.08)' : 'transparent',
-                                        color: topic === t ? '#e2e8f0' : '#64748b',
-                                    }}
-                                >
-                                    {t}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() => { setCustom(true); setTopic('') }}
-                                style={{ ...topicBtnStyle, borderStyle: 'dashed', color: '#38bdf8', borderColor: 'rgba(56,189,248,0.3)' }}
-                            >
-                                + Custom topic…
-                            </button>
+                        <div className="space-y-2.5">
+                            {/* Category pills */}
+                            <div className="flex gap-1.5 overflow-x-auto pb-1">
+                                {TOPIC_CATEGORIES.map((cat, idx) => (
+                                    <button
+                                        key={cat.name}
+                                        onClick={() => {
+                                            setSelectedCategory(idx)
+                                            setTopic(cat.topics[0])
+                                        }}
+                                        className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                                            selectedCategory === idx
+                                                ? 'bg-white text-slate-900 shadow-sm'
+                                                : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-white/[0.06]'
+                                        }`}
+                                    >
+                                        {cat.name}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Motion list */}
+                            <div className="space-y-1.5">
+                                {TOPIC_CATEGORIES[selectedCategory].topics.map((t) => (
+                                    <button
+                                        key={t}
+                                        onClick={() => setTopic(t)}
+                                        className={`w-full text-left p-3 rounded-xl border text-xs leading-relaxed transition-all flex items-center justify-between gap-3 ${
+                                            topic === t
+                                                ? 'bg-slate-850 border-sky-500/50 text-slate-100 shadow-sm'
+                                                : 'bg-slate-900/40 border-white/[0.06] text-slate-400 hover:text-slate-200 hover:border-white/[0.12]'
+                                        }`}
+                                    >
+                                        <span>{t}</span>
+                                        {topic === t && <span className="text-sky-400 font-bold">✓</span>}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     ) : (
                         <input
                             type="text"
-                            value={topic}
-                            onChange={(e) => setTopic(e.target.value)}
-                            placeholder="Enter your debate topic…"
-                            style={inputStyle}
+                            value={customTopic}
+                            onChange={(e) => setCustomTopic(e.target.value)}
+                            placeholder="Type any debate resolution here…"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-white/[0.1] text-slate-100 text-xs focus:outline-none focus:border-sky-500"
                             autoFocus
                         />
                     )}
                 </div>
 
-                {/* Role */}
-                <div style={{ marginBottom: '24px' }}>
-                    <label style={labelStyle}>Your Stance</label>
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                        {['Pro', 'Con'].map((r) => (
-                            <button
-                                key={r}
-                                onClick={() => setRole(r)}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px',
-                                    borderRadius: '10px',
-                                    border: `2px solid ${role === r ? (r === 'Pro' ? '#4ade80' : '#38bdf8') : 'rgba(30,45,74,0.8)'}`,
-                                    background: role === r
-                                        ? r === 'Pro' ? 'rgba(74,222,128,0.08)' : 'rgba(56,189,248,0.08)'
-                                        : 'transparent',
-                                    color: role === r ? '#e2e8f0' : '#475569',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    fontFamily: 'Inter, sans-serif',
-                                }}
-                            >
-                                {r === 'Pro' ? '👍 Support the motion' : '👎 Oppose the motion'}
-                            </button>
-                        ))}
+                {/* 2. Stance Selector */}
+                <div className="mb-6">
+                    <label className="block text-xs font-semibold text-slate-300 mb-2">
+                        2. Your Position
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                            onClick={() => setRole('Pro')}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                                role === 'Pro'
+                                    ? 'bg-slate-850 border-emerald-500/60 text-emerald-300 shadow-sm'
+                                    : 'bg-slate-900/40 border-white/[0.06] text-slate-400 hover:border-white/[0.12]'
+                            }`}
+                        >
+                            <div className="font-semibold text-xs text-slate-200 mb-0.5">👍 Support (Pro)</div>
+                            <p className="text-[11px] text-slate-400">You argue affirmative; AI counters.</p>
+                        </button>
+
+                        <button
+                            onClick={() => setRole('Con')}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                                role === 'Con'
+                                    ? 'bg-slate-850 border-sky-500/60 text-sky-300 shadow-sm'
+                                    : 'bg-slate-900/40 border-white/[0.06] text-slate-400 hover:border-white/[0.12]'
+                            }`}
+                        >
+                            <div className="font-semibold text-xs text-slate-200 mb-0.5">👎 Oppose (Con)</div>
+                            <p className="text-[11px] text-slate-400">You argue negative; AI defends.</p>
+                        </button>
                     </div>
-                    <p style={{ fontSize: '0.75rem', color: '#475569', margin: '8px 0 0' }}>
-                        The AI will take the opposite stance and challenge your arguments.
-                    </p>
                 </div>
 
-                {/* Who speaks first */}
-                <div style={{ marginBottom: '28px' }}>
-                    <label style={labelStyle}>Who Speaks First?</label>
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                {/* 3. Opening Speaker */}
+                <div className="mb-6">
+                    <label className="block text-xs font-semibold text-slate-300 mb-2">
+                        3. Opening Speaker
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
                         {[
-                            { value: 'ai', label: '🤖 AI makes opening', desc: 'AI starts with an opening statement' },
-                            { value: 'user', label: '🙋 I speak first', desc: "You kick off the debate" },
-                        ].map(({ value, label, desc }) => (
+                            { value: 'ai', title: '🤖 AI Opens', desc: 'AI delivers the opening argument' },
+                            { value: 'user', title: '🙋 I Speak First', desc: 'You take the floor first' },
+                        ].map((s) => (
                             <button
-                                key={value}
-                                onClick={() => setFirstSpeaker(value)}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 12px',
-                                    borderRadius: '10px',
-                                    border: `2px solid ${firstSpeaker === value ? '#818cf8' : 'rgba(30,45,74,0.8)'}`,
-                                    background: firstSpeaker === value ? 'rgba(129,140,248,0.08)' : 'transparent',
-                                    color: firstSpeaker === value ? '#e2e8f0' : '#475569',
-                                    fontSize: '0.82rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    fontFamily: 'Inter, sans-serif',
-                                    textAlign: 'left',
-                                    lineHeight: 1.4,
-                                }}
+                                key={s.value}
+                                onClick={() => setFirstSpeaker(s.value)}
+                                className={`p-3 rounded-xl border text-left transition-all ${
+                                    firstSpeaker === s.value
+                                        ? 'bg-slate-850 border-indigo-500/60 text-indigo-200 shadow-sm'
+                                        : 'bg-slate-900/40 border-white/[0.06] text-slate-400 hover:border-white/[0.12]'
+                                }`}
                             >
-                                <div>{label}</div>
-                                <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '2px' }}>{desc}</div>
+                                <div className="font-semibold text-xs text-slate-200 mb-0.5">{s.title}</div>
+                                <p className="text-[11px] text-slate-400">{s.desc}</p>
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Start button */}
+                {/* Start Button */}
                 <button
                     onClick={handleStart}
-                    disabled={!topic && SAMPLE_TOPICS.length === 0}
-                    style={{
-                        width: '100%',
-                        padding: '14px',
-                        borderRadius: '12px',
-                        border: 'none',
-                        background: 'linear-gradient(135deg, #0ea5e9, #6366f1)',
-                        color: '#fff',
-                        fontSize: '1rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        letterSpacing: '0.03em',
-                        boxShadow: '0 0 24px rgba(14, 165, 233, 0.3)',
-                        fontFamily: 'Inter, sans-serif',
-                        transition: 'transform 0.15s, box-shadow 0.15s',
-                    }}
-                    onMouseEnter={(e) => { e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = '0 0 36px rgba(14,165,233,0.4)' }}
-                    onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 0 24px rgba(14,165,233,0.3)' }}
+                    className="w-full py-3 rounded-xl font-semibold text-xs text-slate-900 bg-white hover:bg-slate-200 transition-all active:scale-[0.99] shadow-md flex items-center justify-center gap-2"
                 >
-                    🎙️ Start Debate
+                    <span>Start Debate Round</span>
+                    <span>→</span>
                 </button>
             </div>
         </div>
     )
 }
 
-// ── Main debate view ──────────────────────────────────────────
+// ── Debate Arena ──────────────────────────────────────────────
 
 function DebateView({
     topic, userRole, analyserRef,
@@ -232,97 +222,79 @@ function DebateView({
     micActive, connected,
     onMicToggle, onEnd,
     notes, tips,
-    transcriptLines,      // last 6 lines for overlay
-    fullTranscript,       // all lines for panel
+    transcriptLines,
+    fullTranscript,
     onHelp,
     onSave,
     isAiThinking,
 }) {
     const aiRole = userRole === 'Pro' ? 'Con' : 'Pro'
+    const [showNotes, setShowNotes] = useState(true)
+    const [showTranscript, setShowTranscript] = useState(true)
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-
-            {/* ── Header ── */}
-            <header
-                style={{
-                    padding: '12px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: '1px solid rgba(30,45,74,0.6)',
-                    background: 'rgba(8,12,20,0.9)',
-                    backdropFilter: 'blur(12px)',
-                    flexShrink: 0,
-                    zIndex: 10,
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{
-                        fontSize: '1.05rem',
-                        fontWeight: 800,
-                        background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                    }}>
-                        DebateMate
-                    </span>
-                    <span style={{ color: '#1e3a5f', fontSize: '0.8rem' }}>|</span>
-                    <span style={{
-                        color: '#64748b', fontSize: '0.78rem',
-                        maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                        {topic}
-                    </span>
+        <div className="h-full w-full flex flex-col arena-human-bg overflow-hidden text-slate-100">
+            {/* ── Top Bar ── */}
+            <header className="h-14 px-5 sm:px-6 flex items-center justify-between border-b border-white/[0.08] bg-slate-950/70 backdrop-blur-md z-20 flex-shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold text-xs flex-shrink-0">
+                        D
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
+                            Motion
+                        </span>
+                        <h2 className="text-xs sm:text-sm font-semibold text-slate-200 truncate max-w-xs sm:max-w-md md:max-w-lg">
+                            {topic}
+                        </h2>
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span className={`role-badge ${userRole.toLowerCase()}`}>{userRole === 'Pro' ? '👍 You' : '👎 You'}</span>
-                    <span style={{ color: '#334155', fontSize: '0.7rem' }}>vs</span>
-                    <span className={`role-badge ${aiRole.toLowerCase()}`}>AI {aiRole === 'Pro' ? '👍' : '👎'}</span>
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                    <div className="hidden sm:flex items-center gap-2 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/[0.08] text-[11px]">
+                        <span className={userRole === 'Pro' ? 'text-emerald-400 font-medium' : 'text-sky-400 font-medium'}>
+                            You: {userRole}
+                        </span>
+                        <span className="text-slate-600">·</span>
+                        <span className={aiRole === 'Pro' ? 'text-emerald-400 font-medium' : 'text-sky-400 font-medium'}>
+                            AI: {aiRole}
+                        </span>
+                    </div>
 
-                    {/* Connection dot */}
-                    <div
-                        role="status"
-                        aria-label={connected ? 'Connected to server' : 'Disconnected from server'}
-                        style={{
-                            width: '8px', height: '8px', borderRadius: '50%',
-                            background: connected ? '#4ade80' : '#64748b',
-                            boxShadow: connected ? '0 0 8px #4ade80' : 'none',
-                            marginLeft: '4px',
-                        }}
-                        title={connected ? 'Connected' : 'Disconnected'}
-                    />
+                    <button
+                        onClick={() => setShowNotes(!showNotes)}
+                        className={`px-2.5 py-1 rounded-lg text-xs border transition-all ${
+                            showNotes ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-slate-900/60 border-white/[0.08] text-slate-400'
+                        }`}
+                        title="Toggle Coach Deck"
+                    >
+                        💡 Notes
+                    </button>
+
+                    <button
+                        onClick={() => setShowTranscript(!showTranscript)}
+                        className={`px-2.5 py-1 rounded-lg text-xs border transition-all ${
+                            showTranscript ? 'bg-sky-500/10 border-sky-500/30 text-sky-300' : 'bg-slate-900/60 border-white/[0.08] text-slate-400'
+                        }`}
+                        title="Toggle Transcript Panel"
+                    >
+                        📜 Transcript
+                    </button>
 
                     <button
                         onClick={onEnd}
-                        aria-label="End debate"
-                        style={{
-                            padding: '6px 14px',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(30,45,74,0.8)',
-                            background: 'transparent',
-                            color: '#64748b',
-                            fontSize: '0.75rem',
-                            cursor: 'pointer',
-                            fontFamily: 'Inter, sans-serif',
-                            transition: 'all 0.15s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; e.currentTarget.style.color = '#f87171' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(30,45,74,0.8)'; e.currentTarget.style.color = '#64748b' }}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all"
                     >
-                        End Debate
+                        End Round
                     </button>
                 </div>
             </header>
 
-            {/* ── Main content: Sphere + Transcript panel ── */}
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-
-                {/* ── Center area ── */}
-                <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                    {/* Sphere */}
-                    <div style={{ position: 'absolute', inset: 0 }}>
+            {/* ── Main Arena Content ── */}
+            <div className="flex-1 flex overflow-hidden relative">
+                <div className="flex-1 relative flex flex-col justify-between overflow-hidden">
+                    {/* 3D Visualizer */}
+                    <div className="absolute inset-0 z-0">
                         <Suspense fallback={null}>
                             <SphereVisualizer
                                 analyserRef={analyserRef}
@@ -332,146 +304,90 @@ function DebateView({
                         </Suspense>
                     </div>
 
-                    {/* Notes panel — top right of center */}
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '16px',
-                            right: '16px',
-                            zIndex: 5,
-                        }}
-                    >
-                        <DebateNotes notes={notes} tips={tips} />
+                    {/* Floating Notes Deck */}
+                    {showNotes && (
+                        <div className="absolute top-4 right-4 z-10 hidden md:block">
+                            <DebateNotes notes={notes} tips={tips} />
+                        </div>
+                    )}
+
+                    {/* Stage Status */}
+                    <div className="z-10 text-center mt-6 pointer-events-none">
+                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-white/[0.08] text-xs font-medium text-slate-300 shadow-md">
+                            {isAiThinking ? (
+                                <>
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                                    <span>AI formulating rebuttal…</span>
+                                </>
+                            ) : isAiSpeaking ? (
+                                <>
+                                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                                    <span>AI opponent speaking…</span>
+                                </>
+                            ) : isUserSpeaking ? (
+                                <>
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span>Listening to your argument…</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="w-2 h-2 rounded-full bg-slate-500" />
+                                    <span>Ready · Unmute mic to speak</span>
+                                </>
+                            )}
+                        </div>
                     </div>
 
-                    {/* State label */}
-                    <div
-                        style={{
-                            position: 'absolute',
-                            bottom: '235px',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            letterSpacing: '0.12em',
-                            textTransform: 'uppercase',
-                            color: isAiThinking
-                                ? '#fbbf24'
-                                : isAiSpeaking
-                                    ? '#38bdf8'
-                                    : isUserSpeaking
-                                        ? '#4ade80'
-                                        : '#334155',
-                            transition: 'color 0.4s',
-                            textShadow: isAiSpeaking
-                                ? '0 0 12px rgba(56,189,248,0.5)'
-                                : isUserSpeaking
-                                    ? '0 0 12px rgba(74,222,128,0.5)'
-                                    : 'none',
-                        }}
-                    >
-                        {isAiThinking
-                            ? '⏳ AI Thinking…'
-                            : isAiSpeaking
-                                ? '◉ AI Speaking'
-                                : isUserSpeaking
-                                    ? '◉ Listening…'
-                                    : '○ Idle'}
-                    </div>
+                    {/* Bottom Floating Control Bar */}
+                    <div className="z-10 pb-6 flex flex-col items-center gap-3">
+                        <TranscriptOverlay lines={transcriptLines} />
 
-                    {/* Controls row — mic + help */}
-                    <div
-                        style={{
-                            position: 'absolute',
-                            bottom: '175px',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            zIndex: 5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '20px',
-                        }}
-                    >
-                        {/* Help Me button */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                        <div className="human-panel px-5 py-2.5 rounded-2xl flex items-center gap-5 border border-white/[0.08] shadow-xl">
                             <button
                                 onClick={onHelp}
-                                aria-label="Ask AI coach for help"
-                                title="Ask AI to help you respond"
-                                style={{
-                                    width: '48px',
-                                    height: '48px',
-                                    borderRadius: '50%',
-                                    border: '2px solid rgba(251,191,36,0.4)',
-                                    background: 'rgba(251,191,36,0.08)',
-                                    color: '#fbbf24',
-                                    fontSize: '1.2rem',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.2s',
-                                    backdropFilter: 'blur(8px)',
-                                }}
-                                onMouseEnter={e => {
-                                    e.currentTarget.style.background = 'rgba(251,191,36,0.18)'
-                                    e.currentTarget.style.boxShadow = '0 0 16px rgba(251,191,36,0.3)'
-                                }}
-                                onMouseLeave={e => {
-                                    e.currentTarget.style.background = 'rgba(251,191,36,0.08)'
-                                    e.currentTarget.style.boxShadow = 'none'
-                                }}
+                                className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-300 transition-colors"
+                                title="Ask coach for hint"
                             >
-                                💡
+                                <div className="w-9 h-9 rounded-xl bg-slate-900 border border-white/[0.08] flex items-center justify-center text-sm">
+                                    💡
+                                </div>
+                                <span className="text-[10px] font-medium text-slate-400">Hint</span>
                             </button>
-                            <span style={{ fontSize: '0.62rem', color: '#475569' }}>Help Me</span>
-                        </div>
 
-                        {/* Mic button */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                             <button
                                 onClick={onMicToggle}
-                                aria-label={micActive ? 'Mute microphone' : 'Activate microphone'}
-                                aria-pressed={micActive}
-                                className={micActive ? 'mic-active' : ''}
-                                style={{
-                                    width: '64px',
-                                    height: '64px',
-                                    borderRadius: '50%',
-                                    border: `2px solid ${micActive ? '#4ade80' : 'rgba(30,45,74,0.8)'}`,
-                                    background: micActive ? 'rgba(74,222,128,0.12)' : 'rgba(8,12,20,0.85)',
-                                    color: micActive ? '#4ade80' : '#475569',
-                                    fontSize: '1.5rem',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.2s',
-                                    backdropFilter: 'blur(8px)',
-                                    boxShadow: micActive ? '0 0 20px rgba(74,222,128,0.25)' : 'none',
-                                }}
+                                className={`w-13 h-13 px-4 py-3 rounded-2xl flex items-center justify-center text-xl transition-all shadow-md ${
+                                    micActive
+                                        ? 'bg-emerald-600 text-white mic-natural-active shadow-emerald-900/30'
+                                        : 'bg-slate-850 text-slate-400 hover:text-white border border-white/[0.08]'
+                                }`}
+                                title={micActive ? 'Mute microphone' : 'Unmute microphone'}
                             >
-                                {micActive ? '🎙️' : '🎤'}
+                                {micActive ? '🎙️' : '🔇'}
                             </button>
-                            <span style={{ fontSize: '0.62rem', color: '#475569' }}>
-                                {micActive ? 'Tap to mute' : 'Tap to speak'}
-                            </span>
+
+                            <button
+                                onClick={onSave}
+                                className="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-300 transition-colors"
+                                title="Save full transcript"
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-slate-900 border border-white/[0.08] flex items-center justify-center text-sm">
+                                    📥
+                                </div>
+                                <span className="text-[10px] font-medium text-slate-400">Save</span>
+                            </button>
                         </div>
-
-                        {/* Spacer to balance layout */}
-                        <div style={{ width: '48px' }} />
                     </div>
-
-                    {/* Live Transcript overlay (bottom of center area) */}
-                    <TranscriptOverlay lines={transcriptLines} />
                 </div>
 
-                {/* ── Right: Full transcript panel ── */}
-                <TranscriptPanel
-                    lines={fullTranscript}
-                    topic={topic}
-                    onSave={onSave}
-                />
+                {/* Right-hand side Transcript Panel */}
+                {showTranscript && (
+                    <TranscriptPanel
+                        lines={fullTranscript}
+                        topic={topic}
+                        onSave={onSave}
+                    />
+                )}
             </div>
         </div>
     )
@@ -479,224 +395,69 @@ function DebateView({
 
 // ── Root App ──────────────────────────────────────────────────
 
-let lineId = 0
-
 export default function App() {
-    const { user, loading, login, register, logout, authFetch } = useAuth()
-    const [showAuth, setShowAuth] = useState(false)
+    const { token, user, login, register, logout, authFetch } = useAuth()
+    const [phase, setPhase] = useState('landing')
     const [authMode, setAuthMode] = useState('login')
+    const [debateConfig, setDebateConfig] = useState({
+        topic: '',
+        user_side: 'Pro',
+        first_speaker: 'AI',
+    })
 
-    if (loading) {
-        return (
-            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontFamily: 'Inter, sans-serif', background: 'var(--bg)' }}>
-                Loading DebateMate…
-            </div>
-        )
-    }
-
-    if (!user) {
-        return showAuth ? (
-            <AuthScreen
-                initialMode={authMode}
-                onBack={() => setShowAuth(false)}
-                onLogin={login}
-                onRegister={register}
-            />
-        ) : (
-            <LandingPage
-                onGetStarted={() => { setAuthMode('register'); setShowAuth(true) }}
-                onLogin={() => { setAuthMode('login'); setShowAuth(true) }}
-            />
-        )
-    }
-
-    return (
-        <ErrorBoundary>
-            <AppContent user={user} logout={logout} authFetch={authFetch} />
-        </ErrorBoundary>
-    )
-}
-
-function AppContent({ user, logout, authFetch }) {
-    const [phase, setPhase] = useState('setup')   // 'setup' | 'debate' | 'history'
-    const [debateConfig, setDebateConfig] = useState(null)
-    const [notes, setNotes] = useState([])
-    const [tips, setTips] = useState([])
-    const [transcriptLines, setTranscript] = useState([])  // last 6 for overlay
-    const [isAiThinking, setIsAiThinking] = useState(false)
-
-    // Full transcript (all lines, never trimmed) — stored in ref + state for panel
-    const fullTranscriptRef = useRef([])
-    const [fullTranscript, setFullTranscript] = useState([])
-    const sessionIdRef = useRef(null)
     const startedAtRef = useRef(null)
 
-    const addLine = useCallback((speaker, text, isPartial = false) => {
-        const ts = Date.now()
-        const newLine = { id: ++lineId, speaker, text, isPartial, timestamp: ts }
+    const {
+        connected,
+        micActive,
+        isUserSpeaking,
+        isAiSpeaking,
+        isAiThinking,
+        notes,
+        tips,
+        transcriptLines,
+        fullTranscript,
+        analyserRef,
+        startDebate,
+        endDebate,
+        toggleMic,
+        requestHelp,
+    } = useVoice({ token })
 
-        // Update overlay (last 6 lines)
-        setTranscript(prev => {
-            const last = prev[prev.length - 1]
-            if (last && last.speaker === speaker && last.isPartial) {
-                return [...prev.slice(0, -1), { ...last, text, isPartial, timestamp: ts }]
-            }
-            return [...prev.slice(-5), newLine]
-        })
-
-        // Update full transcript (replace partial or append)
-        if (!isPartial) {
-            const allLines = fullTranscriptRef.current
-            const lastFull = allLines[allLines.length - 1]
-            let updated
-            if (lastFull && lastFull.speaker === speaker && lastFull.isPartial) {
-                updated = [...allLines.slice(0, -1), { ...lastFull, text, isPartial: false, timestamp: ts }]
-            } else {
-                updated = [...allLines, newLine]
-            }
-            fullTranscriptRef.current = updated
-            setFullTranscript([...updated])
-        } else {
-            // Show partial in both
-            const allLines = fullTranscriptRef.current
-            const lastFull = allLines[allLines.length - 1]
-            let updated
-            if (lastFull && lastFull.speaker === speaker && lastFull.isPartial) {
-                updated = [...allLines.slice(0, -1), { ...lastFull, text, timestamp: ts }]
-            } else {
-                updated = [...allLines, newLine]
-            }
-            fullTranscriptRef.current = updated
-            setFullTranscript([...updated])
-        }
-    }, [])
-
-    const onMessage = useCallback((msg) => {
-        switch (msg.type) {
-            case 'ready':
-                if (msg.session_id) sessionIdRef.current = msg.session_id
-                break
-
-            case 'setup_ack':
-                // Server confirmed the setup handshake (topic / side / first
-                // speaker stored in the connection session state)
-                startedAtRef.current = new Date().toISOString()
-                break
-
-            case 'transcript':
-                // Completed final turn of the user's speech
-                addLine(msg.speaker || 'user', msg.text, false)
-                break
-
-            case 'partial_transcript':
-                // Live interim caption (Deepgram "Update" event)
-                addLine(msg.speaker || 'user', msg.text, true)
-                break
-
-            case 'agent_response': {
-                // Structured payload: rebuttal (voice text), coaching_tip,
-                // sticky_note — with legacy text/tip aliases as fallback
-                setIsAiThinking(false)
-                const replyText = msg.rebuttal ?? msg.text
-                const coachingTip = msg.coaching_tip ?? msg.tip
-                if (replyText) addLine('ai', replyText, false)
-                if (msg.notes) setNotes(msg.notes)
-                else if (msg.sticky_note) setNotes(prev => [...prev, msg.sticky_note])
-                if (coachingTip) setTips(prev => [...prev, coachingTip])
-                break
-            }
-
-            case 'ai_thinking_start':
-                setIsAiThinking(true)
-                break
-
-            case 'ai_thinking_end':
-                setIsAiThinking(false)
-                break
-
-            case 'note':
-                setNotes((prev) => [...prev, msg.text])
-                break
-
-            case 'tip':
-                setTips((prev) => [...prev, msg.text])
-                break
-
-            case 'error':
-                console.error('[Server error]', msg.text)
-                addLine('ai', `⚠️ ${msg.text}`, false)
-                break
-
-            default:
-                break
-        }
-    }, [addLine])
-
-    const { connect, disconnect, startMic, stopMic, sendMessage, primeAudio, connected, micActive, isUserSpeaking, isAiSpeaking, analyserRef } = useVoice({ onMessage })
-
-    const handleStart = useCallback(({ topic, user_side, first_speaker }) => {
-        setDebateConfig({ topic, user_side, first_speaker })
-        setNotes([])
-        setTips([])
-        setTranscript([])
-        fullTranscriptRef.current = []
-        setFullTranscript([])
-        lineId = 0
+    const handleStart = useCallback((config) => {
+        setDebateConfig(config)
+        startedAtRef.current = new Date().toISOString()
         setPhase('debate')
-        primeAudio()   // unlock playback audio inside this click gesture
-        connect({ topic, user_side, first_speaker })
-    }, [connect, primeAudio])
-
-    const handleMicToggle = useCallback(async () => {
-        if (micActive) stopMic()
-        else await startMic()
-    }, [micActive, startMic, stopMic])
+        startDebate(config)
+    }, [startDebate])
 
     const handleEnd = useCallback(() => {
-        disconnect()
+        endDebate()
         setPhase('setup')
-        setDebateConfig(null)
-    }, [disconnect])
-
-    const handleHelp = useCallback(() => {
-        sendMessage({ type: 'help_request' })
-    }, [sendMessage])
+    }, [endDebate])
 
     const handleSave = useCallback(() => {
-        const lines = fullTranscriptRef.current
-        const topic = debateConfig?.topic || 'Debate'
-        const timestamp = new Date().toLocaleString()
+        const lines = fullTranscript
+        const text = lines
+            .filter(l => !l.isPartial)
+            .map(l => `[${l.speaker.toUpperCase()}] ${l.text}`)
+            .join('\n\n')
 
-        // Build plain text
-        let text = `DebateMate — Debate Transcript\n`
-        text += `Topic: ${topic}\n`
-        text += `Date: ${timestamp}\n`
-        text += `Your Role: ${debateConfig?.user_side || '?'}\n`
-        text += `${'─'.repeat(60)}\n\n`
-
-        lines.filter(l => !l.isPartial).forEach(line => {
-            const who = line.speaker === 'user' ? 'YOU' : 'AI '
-            const time = new Date(line.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-            text += `[${time}] ${who}: ${line.text}\n\n`
-        })
-
-        // Download as .txt
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `debate_${Date.now()}.txt`
+        a.download = `debatemate-${(debateConfig.topic || 'round').slice(0, 30).replace(/[^a-z0-9]/gi, '_')}.txt`
         a.click()
         URL.revokeObjectURL(url)
 
-        // Also POST to server for durable per-user saving
-        if (sessionIdRef.current) {
+        if (authFetch) {
             authFetch('/transcripts', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    session_id: sessionIdRef.current,
-                    topic,
-                    user_side: debateConfig?.user_side,
+                    topic: debateConfig.topic,
+                    user_side: debateConfig.user_side,
                     started_at: startedAtRef.current,
                     transcript: lines.filter(l => !l.isPartial).map(l => ({
                         speaker: l.speaker,
@@ -704,118 +465,97 @@ function AppContent({ user, logout, authFetch }) {
                         timestamp: new Date(l.timestamp).toISOString(),
                     })),
                 }),
-            })
-                .then(r => { if (!r.ok) console.warn('[Save] Server save failed:', r.status) })
-                .catch(err => console.warn('[Save] Server save failed:', err))
+            }).catch(err => console.warn('[Save] Server save failed:', err))
         }
-    }, [debateConfig, authFetch])
+    }, [fullTranscript, debateConfig, authFetch])
+
+    if (!token) {
+        if (phase === 'auth') {
+            return (
+                <AuthScreen
+                    onLogin={login}
+                    onRegister={register}
+                    initialMode={authMode}
+                    onBack={() => setPhase('landing')}
+                />
+            )
+        }
+        return (
+            <LandingPage
+                onGetStarted={() => {
+                    setAuthMode('register')
+                    setPhase('auth')
+                }}
+                onLogin={() => {
+                    setAuthMode('login')
+                    setPhase('auth')
+                }}
+            />
+        )
+    }
 
     return (
-        <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
-            {phase === 'debate' ? (
-                <DebateView
-                    topic={debateConfig.topic}
-                    userRole={debateConfig.user_side}
-                    analyserRef={analyserRef}
-                    isUserSpeaking={isUserSpeaking}
-                    isAiSpeaking={isAiSpeaking}
-                    micActive={micActive}
-                    connected={connected}
-                    onMicToggle={handleMicToggle}
-                    onEnd={handleEnd}
-                    notes={notes}
-                    tips={tips}
-                    transcriptLines={transcriptLines}
-                    fullTranscript={fullTranscript}
-                    onHelp={handleHelp}
-                    onSave={handleSave}
-                    isAiThinking={isAiThinking}
-                />
-            ) : (
-                <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                    <nav
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '10px 20px',
-                            borderBottom: '1px solid rgba(30,45,74,0.6)',
-                            flexShrink: 0,
-                        }}
-                    >
-                        <span style={{ color: '#64748b', fontSize: '0.8rem', marginRight: 'auto', fontFamily: 'Inter, sans-serif' }}>
-                            Signed in as <strong style={{ color: '#94a3b8' }}>{user.username}</strong>
-                        </span>
-                        <button
-                            onClick={() => setPhase(phase === 'setup' ? 'history' : 'setup')}
-                            style={navBtnStyle}
-                        >
-                            {phase === 'setup' ? '📚 Past Debates' : '🎙️ New Debate'}
-                        </button>
-                        <button onClick={logout} aria-label="Log out" style={navBtnStyle}>
-                            Log out
-                        </button>
-                    </nav>
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {phase === 'setup' ? (
-                            <SetupScreen onStart={handleStart} />
-                        ) : (
-                            <HistoryView authFetch={authFetch} onBack={() => setPhase('setup')} />
-                        )}
+        <ErrorBoundary>
+            <div className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans">
+                {phase === 'debate' ? (
+                    <DebateView
+                        topic={debateConfig.topic}
+                        userRole={debateConfig.user_side}
+                        analyserRef={analyserRef}
+                        isUserSpeaking={isUserSpeaking}
+                        isAiSpeaking={isAiSpeaking}
+                        micActive={micActive}
+                        connected={connected}
+                        onMicToggle={toggleMic}
+                        onEnd={handleEnd}
+                        notes={notes}
+                        tips={tips}
+                        transcriptLines={transcriptLines}
+                        fullTranscript={fullTranscript}
+                        onHelp={requestHelp}
+                        onSave={handleSave}
+                        isAiThinking={isAiThinking}
+                    />
+                ) : (
+                    <div className="h-full flex flex-col overflow-hidden">
+                        <nav className="h-13 px-5 sm:px-6 border-b border-white/[0.08] bg-slate-950/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-20">
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-md bg-slate-900 border border-white/[0.08] flex items-center justify-center font-bold text-slate-200 text-xs">
+                                    D
+                                </div>
+                                <span className="font-semibold text-xs text-slate-200">DebateMate</span>
+                                <span className="text-slate-600">·</span>
+                                <span className="text-xs text-slate-400">
+                                    {user?.username}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setPhase(phase === 'setup' ? 'history' : 'setup')}
+                                    className="px-3 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-white/[0.08] transition-all"
+                                >
+                                    {phase === 'setup' ? '📚 Saved Debates' : '🎙️ New Round'}
+                                </button>
+                                <button
+                                    onClick={logout}
+                                    className="px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-400 transition-colors"
+                                >
+                                    Sign out
+                                </button>
+                            </div>
+                        </nav>
+
+                        <div className="flex-1 overflow-y-auto">
+                            {phase === 'setup' ? (
+                                <SetupScreen onStart={handleStart} />
+                            ) : (
+                                <HistoryView authFetch={authFetch} onBack={() => setPhase('setup')} />
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )}
+            </div>
+        </ErrorBoundary>
     )
-}
-
-// ── Shared styles ─────────────────────────────────────────────
-
-const labelStyle = {
-    display: 'block',
-    fontSize: '0.75rem',
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: '#64748b',
-}
-
-const topicBtnStyle = {
-    width: '100%',
-    textAlign: 'left',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    border: '1px solid rgba(30,45,74,0.8)',
-    background: 'transparent',
-    color: '#64748b',
-    fontSize: '0.85rem',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-    fontFamily: 'Inter, sans-serif',
-}
-
-const inputStyle = {
-    width: '100%',
-    marginTop: '10px',
-    padding: '12px 14px',
-    borderRadius: '10px',
-    border: '1px solid rgba(56,189,248,0.35)',
-    background: 'rgba(13,20,36,0.8)',
-    color: '#e2e8f0',
-    fontSize: '0.9rem',
-    outline: 'none',
-    fontFamily: 'Inter, sans-serif',
-    boxSizing: 'border-box',
-}
-
-const navBtnStyle = {
-    padding: '6px 14px',
-    borderRadius: '8px',
-    border: '1px solid rgba(30,45,74,0.8)',
-    background: 'transparent',
-    color: '#64748b',
-    fontSize: '0.75rem',
-    cursor: 'pointer',
-    fontFamily: 'Inter, sans-serif',
-    transition: 'all 0.15s',
 }

@@ -6,6 +6,7 @@ export default function HistoryView({ authFetch, onBack }) {
     const [openId, setOpenId] = useState(null)
     const [detail, setDetail] = useState(null)
     const [detailLoading, setDetailLoading] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
 
     useEffect(() => {
         let alive = true
@@ -33,88 +34,188 @@ export default function HistoryView({ authFetch, onBack }) {
         }
     }
 
+    const downloadTranscript = (itemDetail) => {
+        if (!itemDetail) return
+        const lines = (itemDetail.transcript || [])
+            .map(l => `[${l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : ''}] ${l.speaker.toUpperCase()}: ${l.text}`)
+            .join('\n\n')
+        const content = `DebateMate Transcript\nTopic: ${itemDetail.topic}\nSaved: ${new Date(itemDetail.saved_at).toLocaleString()}\n\n${lines}`
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `debatemate-${(itemDetail.topic || 'round').slice(0, 30).replace(/[^a-z0-9]/gi, '_')}.txt`
+        a.click()
+        URL.revokeObjectURL(url)
+    }
+
+    const filteredItems = (items || []).filter(item =>
+        item.topic?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+
     return (
-        <div className="setup-container" style={{ padding: '24px', overflowY: 'auto' }}>
-            <div style={{ width: '100%', maxWidth: '720px', margin: '0 auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                    <h2 style={{ color: '#e2e8f0', fontFamily: 'Inter, sans-serif', fontSize: '1.3rem', margin: 0 }}>
-                        Past Debates
-                    </h2>
+        <div className="min-h-screen human-bg p-6 sm:p-10 flex flex-col items-center">
+            <div className="w-full max-w-3xl">
+                {/* Top Section */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">
+                            Saved Debate Sessions
+                        </h1>
+                        <p className="text-xs text-slate-400 mt-1">
+                            Review your arguments, timestamps, and coach suggestions.
+                        </p>
+                    </div>
+
                     <button
                         onClick={onBack}
-                        style={{
-                            padding: '8px 16px',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(30,45,74,0.8)',
-                            background: 'transparent',
-                            color: '#64748b',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            fontFamily: 'Inter, sans-serif',
-                        }}
+                        className="self-start sm:self-auto px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white hover:bg-slate-200 transition-all shadow-sm"
                     >
-                        ← New Debate
+                        + New Debate
                     </button>
                 </div>
 
-                {error && <p style={{ color: '#f87171' }}>Could not load debates: {error}</p>}
-                {items === null && !error && <p style={{ color: '#64748b' }}>Loading…</p>}
-                {items !== null && items.length === 0 && (
-                    <p style={{ color: '#64748b' }}>
-                        No saved debates yet — finish one and hit “Save Transcript”.
-                    </p>
+                {/* Search Bar */}
+                {items && items.length > 0 && (
+                    <div className="mb-5">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Filter by motion or topic…"
+                            className="w-full px-3.5 py-2 rounded-xl bg-slate-900/90 border border-white/[0.08] text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-sky-500"
+                        />
+                    </div>
                 )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {(items || []).map((t) => (
-                        <div key={t.id} className="glass" style={{ padding: '14px 18px' }}>
-                            <button
-                                onClick={() => toggle(t.id)}
-                                aria-expanded={openId === t.id}
-                                style={{
-                                    width: '100%',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#e2e8f0',
-                                    cursor: 'pointer',
-                                    fontFamily: 'Inter, sans-serif',
-                                    fontSize: '0.9rem',
-                                    padding: 0,
-                                    textAlign: 'left',
-                                }}
-                            >
-                                <span>{t.topic}</span>
-                                <span style={{ color: '#64748b', fontSize: '0.75rem', whiteSpace: 'nowrap', marginLeft: '12px' }}>
-                                    {new Date(t.saved_at).toLocaleString()} · {t.total_turns} turns
-                                </span>
-                            </button>
+                {/* States */}
+                {error && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs mb-5">
+                        Could not load sessions: {error}
+                    </div>
+                )}
 
-                            {openId === t.id && (
-                                <div style={{ marginTop: '12px', borderTop: '1px solid rgba(30,45,74,0.6)', paddingTop: '12px' }}>
-                                    {detailLoading && <p style={{ color: '#64748b', fontSize: '0.8rem' }}>Loading transcript…</p>}
-                                    {detail && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
-                                            {detail.transcript.map((line, i) => (
-                                                <p key={i} style={{
-                                                    margin: 0,
-                                                    fontSize: '0.82rem',
-                                                    color: line.speaker === 'user' ? '#4ade80' : '#38bdf8',
-                                                    fontFamily: 'Inter, sans-serif',
-                                                    lineHeight: 1.5,
-                                                }}>
-                                                    <strong>{line.speaker === 'user' ? 'You' : 'AI'}:</strong>{' '}
-                                                    <span style={{ color: '#cbd5e1' }}>{line.text}</span>
-                                                </p>
-                                            ))}
+                {items === null && !error && (
+                    <div className="py-12 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-slate-400/30 border-t-white rounded-full animate-spin" />
+                        <span>Loading past sessions…</span>
+                    </div>
+                )}
+
+                {items !== null && items.length === 0 && (
+                    <div className="human-panel p-10 text-center text-slate-400 text-xs flex flex-col items-center gap-2 border border-white/[0.08]">
+                        <p className="font-semibold text-slate-200 text-sm">No saved sessions yet</p>
+                        <p className="max-w-xs text-slate-400">
+                            Finish a debate round and click "Save" to keep a record here.
+                        </p>
+                        <button
+                            onClick={onBack}
+                            className="mt-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white hover:bg-slate-200"
+                        >
+                            Start a session
+                        </button>
+                    </div>
+                )}
+
+                {/* List */}
+                <div className="space-y-2.5">
+                    {filteredItems.map((t) => {
+                        const isOpen = openId === t.id
+                        return (
+                            <div
+                                key={t.id}
+                                className={`human-card-interactive overflow-hidden border transition-all ${
+                                    isOpen ? 'border-white/[0.2] bg-slate-850' : 'border-white/[0.08]'
+                                }`}
+                            >
+                                <button
+                                    onClick={() => toggle(t.id)}
+                                    aria-expanded={isOpen}
+                                    className="w-full p-4 text-left flex items-start sm:items-center justify-between gap-4 cursor-pointer"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                            <span className="badge-clean-neutral text-[10px] font-medium px-2 py-0.5 rounded">
+                                                {t.total_turns || 0} turns
+                                            </span>
+                                            <span className="text-[11px] text-slate-500 font-mono">
+                                                {new Date(t.saved_at).toLocaleDateString(undefined, {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                })}
+                                            </span>
                                         </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                                        <h3 className="text-xs sm:text-sm font-semibold text-slate-100 truncate">
+                                            {t.topic}
+                                        </h3>
+                                    </div>
+
+                                    <div className="text-xs text-slate-400">
+                                        {isOpen ? '▲' : '▼'}
+                                    </div>
+                                </button>
+
+                                {isOpen && (
+                                    <div className="border-t border-white/[0.06] bg-slate-900/90 p-4 sm:p-5">
+                                        {detailLoading && (
+                                            <div className="py-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                                <span className="w-3.5 h-3.5 border-2 border-slate-400/30 border-t-white rounded-full animate-spin" />
+                                                <span>Loading dialogue…</span>
+                                            </div>
+                                        )}
+
+                                        {detail && (
+                                            <div>
+                                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/[0.06]">
+                                                    <span className="text-xs font-semibold text-slate-300">
+                                                        Transcript Record
+                                                    </span>
+                                                    <button
+                                                        onClick={() => downloadTranscript(detail)}
+                                                        className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-white/[0.08] transition-all flex items-center gap-1"
+                                                    >
+                                                        <span>📥</span>
+                                                        <span>Download .txt</span>
+                                                    </button>
+                                                </div>
+
+                                                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                                                    {(detail.transcript || []).map((line, idx) => {
+                                                        const isUser = line.speaker === 'user'
+                                                        return (
+                                                            <div
+                                                                key={idx}
+                                                                className={`p-3 rounded-lg border text-xs leading-relaxed ${
+                                                                    isUser
+                                                                        ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-100 ml-4'
+                                                                        : 'bg-slate-800/50 border-white/[0.06] text-slate-200 mr-4'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center justify-between text-[10px] font-semibold mb-1">
+                                                                    <span className={isUser ? 'text-emerald-400' : 'text-sky-400'}>
+                                                                        {isUser ? 'You' : 'AI'}
+                                                                    </span>
+                                                                    {line.timestamp && (
+                                                                        <span className="text-slate-500 font-mono">
+                                                                            {new Date(line.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-slate-300">
+                                                                    {line.text}
+                                                                </p>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
         </div>

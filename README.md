@@ -94,6 +94,46 @@ npm run dev        # dev server
 npm run build      # production bundle in frontend/dist
 ```
 
+### 5. Run the app
+
+**Dev mode (recommended) — two terminals:**
+
+```bash
+# Terminal 1 — backend (API + WebSocket) on http://localhost:8000
+python voice_server.py
+
+# Terminal 2 — Vite dev server on http://localhost:5173
+# (proxies /ws, /auth, /transcripts, /healthz to :8000)
+cd frontend
+npm run dev
+```
+
+Open **http://localhost:5173**, register, pick a topic, and start talking.
+
+**Production-style — one process:**
+
+```bash
+cd frontend && npm run build && cd ..   # builds frontend/dist
+python voice_server.py
+```
+
+Open **http://localhost:8000** — FastAPI serves the API, the WebSocket, and
+the built frontend from a single service (this is how Render runs it).
+
+**Quick reference — everything you can run:**
+
+| Command | Where | What it does |
+|---------|-------|--------------|
+| `python voice_server.py` | repo root | Starts the full app on port `PORT` (default 8000); prints the active LLM provider at startup |
+| `python main.py` | repo root | LLM smoke test — runs one debate turn, prints rebuttal / coaching tip / sticky note |
+| `python -m pytest tests/ -v` | repo root | Test suite — no API keys or AWS account needed |
+| `npm run dev` | `frontend/` | Vite dev server on :5173 with API proxy |
+| `npm run build` | `frontend/` | Production bundle into `frontend/dist` (rebuild + commit whenever UI changes) |
+
+> The server fails fast on missing keys: no `DEEPGRAM_API_KEY` and it won't
+> start; neither `GOOGLE_API_KEY` nor `OPENAI_API_KEY` and it refuses to boot
+> the debate brain.
+
 ## 🎙️ Usage
 
 1. Create an account (or log in) — debates are saved per user.

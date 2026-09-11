@@ -1,75 +1,4 @@
-/**
- * TranscriptOverlay.jsx
- *
- * Fixed bottom bar — shows the last few lines of live speech in real-time.
- * User lines appear in green; AI lines in blue.
- * Shows timestamps. Scrolls to latest automatically.
- *
- * Props:
- *   lines — array of { speaker: 'user'|'ai', text: string, id: number, isPartial: boolean, timestamp: number }
- */
-
 import { useEffect, useRef } from 'react'
-
-function formatTime(ts) {
-    if (!ts) return ''
-    const d = new Date(ts)
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-
-function TranscriptLine({ speaker, text, isPartial, timestamp }) {
-    const isUser = speaker === 'user'
-    return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '8px',
-                animation: 'slideUp 0.3s ease-out forwards',
-            }}
-        >
-            <span
-                style={{
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    flexShrink: 0,
-                    paddingTop: '2px',
-                    color: isUser ? '#4ade80' : '#38bdf8',
-                    minWidth: '24px',
-                }}
-            >
-                {isUser ? 'You' : 'AI'}
-            </span>
-            <p
-                style={{
-                    margin: 0,
-                    fontSize: '0.88rem',
-                    color: isUser ? '#bbf7d0' : '#bae6fd',
-                    lineHeight: 1.5,
-                    opacity: isPartial ? 0.6 : 0.95,
-                    fontStyle: isPartial ? 'italic' : 'normal',
-                    transition: 'opacity 0.2s',
-                    flex: 1,
-                }}
-            >
-                {text}
-                {isPartial && <span style={{ opacity: 0.5 }}> …</span>}
-            </p>
-            {timestamp && (
-                <span style={{
-                    fontSize: '0.62rem',
-                    color: '#334155',
-                    flexShrink: 0,
-                    paddingTop: '3px',
-                }}>
-                    {formatTime(timestamp)}
-                </span>
-            )}
-        </div>
-    )
-}
 
 export default function TranscriptOverlay({ lines = [] }) {
     const bottomRef = useRef(null)
@@ -78,51 +7,50 @@ export default function TranscriptOverlay({ lines = [] }) {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [lines.length])
 
-    // Show only last 6 lines in the overlay
-    const visibleLines = lines.slice(-6)
+    // Show only the last 3-4 active live speech chunks
+    const visibleLines = lines.slice(-3)
 
     return (
-        <div
-            className="transcript-bar"
-            style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                maxHeight: '160px',
-                overflowY: 'auto',
-                background: 'rgba(8, 12, 20, 0.85)',
-                backdropFilter: 'blur(16px)',
-                borderTop: '1px solid rgba(30, 45, 74, 0.7)',
-                padding: '12px 28px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-            }}
-        >
-            {visibleLines.length === 0 ? (
-                <p
-                    style={{
-                        margin: 0,
-                        fontSize: '0.8rem',
-                        color: '#334155',
-                        fontStyle: 'italic',
-                    }}
-                >
-                    Live transcript will appear here as you speak…
-                </p>
-            ) : (
-                visibleLines.map((line) => (
-                    <TranscriptLine
-                        key={line.id}
-                        speaker={line.speaker}
-                        text={line.text}
-                        isPartial={line.isPartial}
-                        timestamp={line.timestamp}
-                    />
-                ))
-            )}
-            <div ref={bottomRef} />
+        <div className="w-full max-w-2xl mx-auto px-4 pointer-events-none">
+            <div className="glass-panel-subtle p-3.5 sm:p-4 rounded-2xl border border-slate-700/60 shadow-2xl backdrop-blur-xl bg-slate-950/80 pointer-events-auto transition-all">
+                {visibleLines.length === 0 ? (
+                    <div className="flex items-center justify-center gap-2 text-slate-500 text-xs py-1">
+                        <span className="w-2 h-2 rounded-full bg-slate-600 animate-pulse" />
+                        <span>Listening for speech… Tap the mic to argue your case</span>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2 max-h-28 overflow-y-auto pr-1">
+                        {visibleLines.map((line) => {
+                            const isUser = line.speaker === 'user'
+                            return (
+                                <div
+                                    key={line.id}
+                                    className="flex items-start gap-2.5 text-xs animate-slide-up"
+                                >
+                                    <span
+                                        className={`text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider flex-shrink-0 mt-0.5 ${
+                                            isUser
+                                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                                : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                                        }`}
+                                    >
+                                        {isUser ? 'You' : 'AI'}
+                                    </span>
+                                    <p
+                                        className={`leading-relaxed flex-1 ${
+                                            isUser ? 'text-emerald-100' : 'text-sky-100'
+                                        } ${line.isPartial ? 'italic opacity-70' : 'opacity-95'}`}
+                                    >
+                                        {line.text}
+                                        {line.isPartial && <span className="animate-pulse"> …</span>}
+                                    </p>
+                                </div>
+                            )
+                        })}
+                        <div ref={bottomRef} />
+                    </div>
+                )}
+            </div>
         </div>
     )
 }

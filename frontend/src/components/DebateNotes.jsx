@@ -1,169 +1,110 @@
-/**
- * DebateNotes.jsx
- *
- * Top-right panel displaying the LangGraph summarizer's sticky notes
- * and any coaching tips received from the AI.
- *
- * Props:
- *   notes  — string[]   e.g. ["Jobs AI destroys differ", "Retraining is costly"]
- *   tips   — string[]   coaching tip texts
- */
-
-import { useRef, useEffect } from 'react'
-
-function NoteCard({ text, index }) {
-    return (
-        <div
-            className="note-card"
-            style={{ animationDelay: `${index * 30}ms` }}
-        >
-            <div className="flex items-start gap-2">
-                <span style={{ color: '#fbbf24', fontSize: '0.7rem', marginTop: '2px', flexShrink: 0 }}>
-                    ◆
-                </span>
-                <p
-                    style={{
-                        margin: 0,
-                        fontSize: '0.82rem',
-                        fontWeight: 500,
-                        color: '#e2e8f0',
-                        lineHeight: 1.45,
-                        fontFamily: "'JetBrains Mono', monospace",
-                    }}
-                >
-                    {text}
-                </p>
-            </div>
-        </div>
-    )
-}
-
-function TipCard({ text, index }) {
-    return (
-        <div
-            className="tip-banner"
-            style={{ animationDelay: `${index * 30}ms` }}
-        >
-            <div className="flex items-start gap-2">
-                <span style={{ color: '#38bdf8', fontSize: '0.8rem', flexShrink: 0 }}>💡</span>
-                <p
-                    style={{
-                        margin: 0,
-                        fontSize: '0.8rem',
-                        color: '#93c5fd',
-                        lineHeight: 1.45,
-                    }}
-                >
-                    {text}
-                </p>
-            </div>
-        </div>
-    )
-}
+import { useRef, useEffect, useState } from 'react'
 
 export default function DebateNotes({ notes = [], tips = [] }) {
     const scrollRef = useRef(null)
+    const [copiedIndex, setCopiedIndex] = useState(null)
 
-    // Auto-scroll to top when a new note arrives (newest first)
+    // Auto-scroll to top when a new note arrives
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = 0
     }, [notes.length, tips.length])
 
     const reversedNotes = [...notes].reverse()
     const reversedTips = [...tips].reverse()
-
     const isEmpty = notes.length === 0 && tips.length === 0
 
+    const copyText = (text, idx) => {
+        navigator.clipboard?.writeText(text)
+        setCopiedIndex(idx)
+        setTimeout(() => setCopiedIndex(null), 1500)
+    }
+
     return (
-        <div
-            className="glass flex flex-col"
-            style={{
-                width: '260px',
-                maxHeight: '460px',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-            }}
-        >
+        <div className="glass-panel w-72 sm:w-80 flex flex-col max-h-[480px] overflow-hidden border border-slate-700/70 shadow-2xl shadow-sky-950/40">
             {/* Header */}
-            <div
-                style={{
-                    padding: '14px 16px 10px',
-                    borderBottom: '1px solid rgba(30, 45, 74, 0.8)',
-                    flexShrink: 0,
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.85rem' }}>📋</span>
-                    <h2
-                        style={{
-                            margin: 0,
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
-                            color: '#94a3b8',
-                        }}
-                    >
-                        Debate Notes
+            <div className="p-3.5 sm:p-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-base">🧠</span>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                        Coach & Strategy Deck
                     </h2>
-                    {notes.length > 0 && (
-                        <span
-                            style={{
-                                marginLeft: 'auto',
-                                fontSize: '0.7rem',
-                                fontWeight: 600,
-                                color: '#38bdf8',
-                                background: 'rgba(56,189,248,0.12)',
-                                border: '1px solid rgba(56,189,248,0.25)',
-                                borderRadius: '99px',
-                                padding: '1px 8px',
-                            }}
-                        >
-                            {notes.length}
-                        </span>
-                    )}
                 </div>
+                {(notes.length > 0 || tips.length > 0) && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                        {notes.length + tips.length} items
+                    </span>
+                )}
             </div>
 
-            {/* Body */}
-            <div
-                ref={scrollRef}
-                style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    padding: '12px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                }}
-            >
-                {isEmpty && (
-                    <p
-                        style={{
-                            margin: 0,
-                            fontSize: '0.78rem',
-                            color: '#475569',
-                            textAlign: 'center',
-                            marginTop: '20px',
-                            lineHeight: 1.6,
-                        }}
-                    >
-                        Key argument summaries will
-                        <br />
-                        appear here as you debate.
-                    </p>
+            {/* Scrollable Container */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3.5 space-y-3">
+                {isEmpty ? (
+                    <div className="py-10 text-center flex flex-col items-center justify-center gap-2.5">
+                        <span className="text-2xl opacity-40">💡</span>
+                        <p className="text-xs font-semibold text-slate-400">
+                            Strategy deck ready
+                        </p>
+                        <p className="text-[11px] text-slate-500 max-w-[200px] leading-relaxed">
+                            LangGraph sticky notes & AI coaching suggestions will appear here dynamically.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Coaching Tips Section */}
+                        {reversedTips.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
+                                    <span>⚡ Coaching Tips</span>
+                                </div>
+                                {reversedTips.map((tip, idx) => (
+                                    <div
+                                        key={`tip-${idx}`}
+                                        className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 relative group transition-all"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="leading-relaxed font-sans">{tip}</p>
+                                            <button
+                                                onClick={() => copyText(tip, `tip-${idx}`)}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-amber-400/80 hover:text-amber-300 flex-shrink-0"
+                                                title="Copy tip"
+                                            >
+                                                {copiedIndex === `tip-${idx}` ? '✓' : 'Copy'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Argument Notes Section */}
+                        {reversedNotes.length > 0 && (
+                            <div className="space-y-2 pt-1">
+                                <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1">
+                                    <span>📋 Argument Premises</span>
+                                </div>
+                                {reversedNotes.map((note, idx) => (
+                                    <div
+                                        key={`note-${idx}`}
+                                        className="p-3 rounded-xl bg-slate-900/90 border-l-4 border-l-sky-400 border border-slate-800 text-xs text-slate-200 relative group shadow-sm transition-all"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="leading-relaxed font-mono text-[11px] text-slate-300">
+                                                {note}
+                                            </p>
+                                            <button
+                                                onClick={() => copyText(note, `note-${idx}`)}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-slate-500 hover:text-slate-300 flex-shrink-0"
+                                                title="Copy premise"
+                                            >
+                                                {copiedIndex === `note-${idx}` ? '✓' : 'Copy'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
                 )}
-
-                {/* Tips appear at top */}
-                {reversedTips.map((t, i) => (
-                    <TipCard key={`tip-${i}`} text={t} index={i} />
-                ))}
-
-                {/* Sticky notes */}
-                {reversedNotes.map((n, i) => (
-                    <NoteCard key={`note-${i}`} text={n} index={i} />
-                ))}
             </div>
         </div>
     )

@@ -1,11 +1,11 @@
-/* ── Google Font ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+/* ── Google Fonts: Clean, modern editorial typography ── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Base ── */
+/* ── Global Theme & Design Tokens ── */
 *,
 *::before,
 *::after {
@@ -13,15 +13,26 @@
 }
 
 :root {
-    --bg: #080c14;
-    --panel: #0d1424;
-    --border: #1e2d4a;
-    --blue: #38bdf8;
-    --green: #4ade80;
-    --gold: #fbbf24;
-    --purple: #818cf8;
-    --muted: #94a3b8;
-    --surface: #111827;
+    /* Rich, warm dark palette (Linear / Raycast inspired) */
+    --bg: #0b0f17;
+    --bg-elevated: #111726;
+    --panel: #141c2e;
+    --panel-subtle: rgba(20, 28, 46, 0.7);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.16);
+    --border-accent: rgba(56, 189, 248, 0.4);
+    
+    /* Tasteful Accents */
+    --accent-blue: #38bdf8;
+    --accent-emerald: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-rose: #f43f5e;
+    --accent-indigo: #6366f1;
+    
+    /* Text Hierarchy */
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
 }
 
 html,
@@ -31,14 +42,22 @@ body,
     margin: 0;
     padding: 0;
     background-color: var(--bg);
-    color: #e2e8f0;
-    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Scrollbar ── */
+/* Subtle Editorial Serif class for quotes/headings */
+.font-serif-clean {
+    font-family: 'Newsreader', Georgia, serif;
+}
+
+/* ── Minimal Smooth Scrollbars ── */
 ::-webkit-scrollbar {
-    width: 4px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -46,132 +65,104 @@ body,
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 99px;
+    transition: background 0.2s ease;
 }
 
-/* ── Glass card ── */
-.glass {
-    background: rgba(13, 20, 36, 0.80);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(30, 45, 74, 0.8);
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* ── Human-crafted Clean Surface Cards ── */
+.human-panel {
+    background: #111726;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
     border-radius: 16px;
 }
 
-/* ── Sticky note card ── */
-.note-card {
-    background: linear-gradient(135deg, #1a253d 0%, #111827 100%);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--gold);
-    border-radius: 10px;
-    padding: 10px 14px;
-    animation: slideUp 0.35s ease-out forwards;
-}
-
-/* ── Coaching tip banner ── */
-.tip-banner {
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(56, 189, 248, 0.04));
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    border-radius: 10px;
-    padding: 10px 14px;
-    animation: slideUp 0.35s ease-out forwards;
-}
-
-/* ── Setup screen ── */
-.setup-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    background:
-        radial-gradient(ellipse at 20% 20%, rgba(56, 189, 248, 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 80%, rgba(129, 140, 248, 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 30%, #0f1f3d 0%, var(--bg) 70%);
-}
-
-/* ── Badge ── */
-.role-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: 99px;
-    font-size: 0.73rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.role-badge.pro {
-    background: rgba(74, 222, 128, 0.12);
-    color: var(--green);
-    border: 1px solid rgba(74, 222, 128, 0.3);
-}
-
-.role-badge.con {
-    background: rgba(56, 189, 248, 0.12);
-    color: var(--blue);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-}
-
-/* ── Glow ring around sphere ── */
-.sphere-ring {
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-    transition: box-shadow 0.4s ease, opacity 0.4s ease;
-}
-
-.sphere-ring.ai-speaking {
-    box-shadow: 0 0 80px 30px rgba(56, 189, 248, 0.2);
-}
-
-.sphere-ring.user-speaking {
-    box-shadow: 0 0 80px 30px rgba(74, 222, 128, 0.2);
-}
-
-/* ── Transcript overlay (live bottom bar) ── */
-.transcript-bar {
+.human-panel-subtle {
+    background: rgba(17, 23, 38, 0.75);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid var(--border);
-    transition: opacity 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
 }
 
-/* ── Pulse animation for mic button ── */
-@keyframes mic-pulse {
+.human-card-interactive {
+    background: #121929;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.human-card-interactive:hover {
+    background: #162035;
+    border-color: rgba(255, 255, 255, 0.18);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Warm Subtle Background Gradients ── */
+.human-bg {
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(56, 189, 248, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(99, 102, 241, 0.04) 0%, transparent 40%),
+        #0b0f17;
+}
+
+.arena-human-bg {
+    background:
+        radial-gradient(circle at 50% 30%, rgba(56, 189, 248, 0.05) 0%, transparent 60%),
+        radial-gradient(circle at 80% 90%, rgba(16, 185, 129, 0.03) 0%, transparent 40%),
+        #0b0f17;
+}
+
+/* ── Balanced Clean Badges ── */
+.badge-clean-sky {
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.badge-clean-emerald {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.badge-clean-amber {
+    background: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.badge-clean-neutral {
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ── Subtle Active Indicators ── */
+@keyframes natural-pulse {
     0%, 100% {
-        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
     }
     50% {
-        box-shadow: 0 0 0 14px rgba(74, 222, 128, 0);
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
     }
 }
 
-.mic-active {
-    animation: mic-pulse 1.5s ease-in-out infinite;
+.mic-natural-active {
+    animation: natural-pulse 2s ease-in-out infinite;
 }
 
-/* ── Help button pulse (when thinking) ── */
-@keyframes help-pulse {
-    0%, 100% {
-        box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
-    }
-    50% {
-        box-shadow: 0 0 0 10px rgba(251, 191, 36, 0);
-    }
-}
-
-.help-active {
-    animation: help-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes slideUp {
+@keyframes slide-up-smooth {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(8px);
     }
     to {
         opacity: 1;
@@ -179,31 +170,6 @@ body,
     }
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* ── Thinking indicator ── */
-@keyframes thinking-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-}
-
-.thinking-indicator {
-    animation: thinking-blink 1.2s ease-in-out infinite;
-}
-
-/* ── Transcript panel scrollbar ── */
-.transcript-panel-body::-webkit-scrollbar {
-    width: 3px;
-}
-
-.transcript-panel-body::-webkit-scrollbar-thumb {
-    background: rgba(30, 45, 74, 0.8);
-    border-radius: 2px;
+.animate-slide-smooth {
+    animation: slide-up-smooth 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

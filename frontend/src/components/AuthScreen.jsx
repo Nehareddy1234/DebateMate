@@ -1,28 +1,5 @@
 import { useState } from 'react'
 
-const fieldStyle = {
-    width: '100%',
-    marginTop: '8px',
-    padding: '12px 14px',
-    borderRadius: '10px',
-    border: '1px solid rgba(56,189,248,0.35)',
-    background: 'rgba(13,20,36,0.8)',
-    color: '#e2e8f0',
-    fontSize: '0.9rem',
-    outline: 'none',
-    fontFamily: 'Inter, sans-serif',
-    boxSizing: 'border-box',
-}
-
-const labelStyle = {
-    display: 'block',
-    fontSize: '0.75rem',
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: '#64748b',
-}
-
 export default function AuthScreen({ onLogin, onRegister, initialMode = 'login', onBack }) {
     const [mode, setMode] = useState(initialMode)   // 'login' | 'register'
     const [username, setUsername] = useState('')
@@ -30,6 +7,7 @@ export default function AuthScreen({ onLogin, onRegister, initialMode = 'login',
     const [password, setPassword] = useState('')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState(null)
+    const [showPassword, setShowPassword] = useState(false)
 
     const submit = async (e) => {
         e.preventDefault()
@@ -45,130 +23,139 @@ export default function AuthScreen({ onLogin, onRegister, initialMode = 'login',
         }
     }
 
-    const tabStyle = (active) => ({
-        flex: 1,
-        padding: '10px',
-        borderRadius: '8px',
-        border: 'none',
-        background: active ? 'rgba(56,189,248,0.12)' : 'transparent',
-        color: active ? '#38bdf8' : '#64748b',
-        fontWeight: 700,
-        fontSize: '0.85rem',
-        cursor: 'pointer',
-        fontFamily: 'Inter, sans-serif',
-    })
-
     return (
-        <div className="setup-container" style={{ padding: '24px' }}>
+        <div className="h-screen w-screen overflow-y-auto human-bg flex flex-col justify-center items-center p-6 selection:bg-sky-500/20">
+            {/* Back link */}
             {onBack && (
-                <div style={{ width: '100%', maxWidth: '420px', margin: '0 auto 12px' }}>
+                <div className="w-full max-w-sm mb-4">
                     <button
                         onClick={onBack}
-                        style={{
-                            background: 'none', border: 'none', color: '#64748b',
-                            cursor: 'pointer', fontSize: '0.8rem',
-                            fontFamily: 'Inter, sans-serif', padding: 0,
-                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
                     >
-                        ← Back
+                        <span>←</span>
+                        <span>Back</span>
                     </button>
                 </div>
             )}
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                <div
-                    style={{
-                        fontSize: '2.8rem',
-                        fontWeight: 800,
-                        background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        letterSpacing: '-0.02em',
-                        lineHeight: 1.1,
-                    }}
-                >
-                    DebateMate
+
+            {/* Header branding */}
+            <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-900 border border-white/[0.08] text-slate-200 font-bold text-sm mb-2 shadow-sm">
+                    D
                 </div>
-                <p style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '8px' }}>
-                    Your real-time voice sparring partner
+                <h1 className="text-xl font-bold tracking-tight text-slate-100">
+                    DebateMate
+                </h1>
+                <p className="text-xs text-slate-400 mt-0.5">
+                    Sign in to track your debate sessions
                 </p>
             </div>
 
-            <div className="glass" style={{ width: '100%', maxWidth: '420px', padding: '32px' }}>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', background: 'rgba(8,12,20,0.6)', padding: '4px', borderRadius: '10px' }}>
-                    <button type="button" onClick={() => { setMode('login'); setError(null) }} style={tabStyle(mode === 'login')}>
-                        Log in
+            {/* Clean Auth Card */}
+            <div className="w-full max-w-sm human-panel p-6 sm:p-7 border border-white/[0.08]">
+                {/* Switcher */}
+                <div className="flex p-1 bg-slate-900/80 rounded-xl border border-white/[0.06] mb-5">
+                    <button
+                        type="button"
+                        onClick={() => { setMode('login'); setError(null) }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            mode === 'login'
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                    >
+                        Sign In
                     </button>
-                    <button type="button" onClick={() => { setMode('register'); setError(null) }} style={tabStyle(mode === 'register')}>
-                        Create account
+                    <button
+                        type="button"
+                        onClick={() => { setMode('register'); setError(null) }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            mode === 'register'
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                    >
+                        Create Account
                     </button>
                 </div>
 
-                <form onSubmit={submit}>
-                    <div style={{ marginBottom: '16px' }}>
-                        <label style={labelStyle}>Username</label>
+                {/* Error message */}
+                {error && (
+                    <div className="p-3 mb-4 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                {/* Form */}
+                <form onSubmit={submit} className="flex flex-col gap-3.5">
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                            Username
+                        </label>
                         <input
-                            style={fieldStyle}
+                            type="text"
+                            required
+                            autoFocus
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            autoComplete="username"
-                            required
+                            placeholder="e.g. alex"
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900/90 border border-white/[0.08] text-slate-100 text-xs focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition-all placeholder:text-slate-600 font-sans"
                         />
                     </div>
 
                     {mode === 'register' && (
-                        <div style={{ marginBottom: '16px' }}>
-                            <label style={labelStyle}>Email</label>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">
+                                Email
+                            </label>
                             <input
-                                style={fieldStyle}
                                 type="email"
+                                required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                autoComplete="email"
-                                required
+                                placeholder="alex@example.com"
+                                className="w-full px-3 py-2 rounded-lg bg-slate-900/90 border border-white/[0.08] text-slate-100 text-xs focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition-all placeholder:text-slate-600 font-sans"
                             />
                         </div>
                     )}
 
-                    <div style={{ marginBottom: '24px' }}>
-                        <label style={labelStyle}>Password</label>
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-slate-400">
+                                Password
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="text-[10px] text-slate-400 hover:text-slate-300"
+                            >
+                                {showPassword ? 'Hide' : 'Show'}
+                            </button>
+                        </div>
                         <input
-                            style={fieldStyle}
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
+                            required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                            minLength={8}
-                            title={mode === 'register' ? 'At least 8 characters' : undefined}
-                            required
+                            placeholder="••••••••"
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900/90 border border-white/[0.08] text-slate-100 text-xs focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition-all placeholder:text-slate-600 font-sans"
                         />
                     </div>
-
-                    {error && (
-                        <p role="alert" style={{ color: '#f87171', fontSize: '0.8rem', marginBottom: '12px' }}>
-                            {error}
-                        </p>
-                    )}
 
                     <button
                         type="submit"
                         disabled={busy}
-                        style={{
-                            width: '100%',
-                            padding: '14px',
-                            borderRadius: '12px',
-                            border: 'none',
-                            background: 'linear-gradient(135deg, #0ea5e9, #6366f1)',
-                            color: '#fff',
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            cursor: busy ? 'wait' : 'pointer',
-                            letterSpacing: '0.03em',
-                            boxShadow: '0 0 24px rgba(14, 165, 233, 0.3)',
-                            fontFamily: 'Inter, sans-serif',
-                            opacity: busy ? 0.7 : 1,
-                        }}
+                        className="w-full mt-2 py-2.5 rounded-lg font-semibold text-xs text-slate-900 bg-white hover:bg-slate-200 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
+                        {busy ? (
+                            <>
+                                <span className="w-3.5 h-3.5 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
+                                <span>Authenticating…</span>
+                            </>
+                        ) : (
+                            <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
+                        )}
                     </button>
                 </form>
             </div>

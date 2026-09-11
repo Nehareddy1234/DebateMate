@@ -116,6 +116,18 @@ def _last_message_of(state: DebateState, cls) -> str:
     return ""
 
 
+def _prepare_messages(system_message: SystemMessage, messages: list[BaseMessage], default_human: str = "Please respond.") -> list[BaseMessage]:
+    """
+    Ensures message list sent to Gemini/OpenAI follows chat completion rules:
+    - Never empty (has at least one user prompt)
+    - Never ends with an AIMessage / model turn (Gemini API 400 error)
+    """
+    history = list(messages or [])
+    if not history or isinstance(history[-1], AIMessage):
+        history.append(HumanMessage(content=default_human))
+    return [system_message] + history
+
+
 def _structured_llm(temperature: float):
     """
     LLM factory bound to the DebateReply schema (guaranteed JSON shape).
@@ -224,7 +236,12 @@ Style:
 
 {_VOICE_RULES}"""
 
-    reply = await llm.ainvoke([SystemMessage(content=system_prompt)] + state["messages"])
+    prompt_messages = _prepare_messages(
+        SystemMessage(content=system_prompt),
+        state.get("messages", []),
+        default_human="Please make your argument.",
+    )
+    reply = await llm.ainvoke(prompt_messages)
     return _store_reply(state, reply)
 
 
@@ -292,7 +309,12 @@ Your task:
 
 {_VOICE_RULES}"""
 
-    reply = await llm.ainvoke([SystemMessage(content=system_prompt)] + state["messages"])
+    prompt_messages = _prepare_messages(
+        SystemMessage(content=system_prompt),
+        state.get("messages", []),
+        default_human="I need a hint or guidance for my side of the debate.",
+    )
+    reply = await llm.ainvoke(prompt_messages)
     return _store_reply(state, reply)
 
 
