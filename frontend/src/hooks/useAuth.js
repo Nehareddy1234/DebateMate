@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 
 const TOKEN_KEY = 'dm_token'
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+
+function formatUrl(url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) return url
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`
+    return `${API_BASE}${cleanUrl}`
+}
 
 export function getToken() {
     return localStorage.getItem(TOKEN_KEY)
@@ -18,7 +25,8 @@ export function useAuth() {
         if (options.body && !headers['Content-Type']) {
             headers['Content-Type'] = 'application/json'
         }
-        const res = await fetch(url, { ...options, headers })
+        const fullUrl = formatUrl(url)
+        const res = await fetch(fullUrl, { ...options, headers })
         if (res.status === 401) {
             localStorage.removeItem(TOKEN_KEY)
             setUser(null)
@@ -32,7 +40,7 @@ export function useAuth() {
             setLoading(false)
             return
         }
-        fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+        fetch(formatUrl('/auth/me'), { headers: { Authorization: `Bearer ${token}` } })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unauthorized'))))
             .then(setUser)
             .catch(() => localStorage.removeItem(TOKEN_KEY))
@@ -46,7 +54,8 @@ export function useAuth() {
     }
 
     const _post = async (url, body) => {
-        const res = await fetch(url, {
+        const fullUrl = formatUrl(url)
+        const res = await fetch(fullUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -71,3 +80,4 @@ export function useAuth() {
 
     return { user, loading, login, register, logout, authFetch }
 }
+

@@ -15,7 +15,24 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/debate`
+function getWsUrl() {
+    if (import.meta.env.VITE_WS_URL) {
+        return import.meta.env.VITE_WS_URL
+    }
+    const apiBase = import.meta.env.VITE_API_URL
+    if (apiBase) {
+        try {
+            const parsed = new URL(apiBase)
+            const proto = parsed.protocol === 'https:' ? 'wss:' : 'ws:'
+            return `${proto}//${parsed.host}/ws/debate`
+        } catch {
+            // fallback
+        }
+    }
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${proto}//${window.location.host}/ws/debate`
+}
+
 const MIC_SAMPLE_RATE = 16_000
 const PLAY_SAMPLE_RATE = 24_000
 const CHUNK_INTERVAL_MS = 250
@@ -62,8 +79,9 @@ export function useVoice({ onMessage }) {
         intentionalCloseRef.current = false
         lastConfigRef.current = { topic, user_side, user_role, first_speaker }
 
-        console.log(`[WS] Connecting to ${WS_URL}...`)
-        const ws = new WebSocket(WS_URL)
+        const wsUrl = getWsUrl()
+        console.log(`[WS] Connecting to ${wsUrl}...`)
+        const ws = new WebSocket(wsUrl)
         ws.binaryType = 'arraybuffer'
         wsRef.current = ws
 
