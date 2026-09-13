@@ -40,9 +40,8 @@ Pipeline overview (one /ws/debate connection == one DebateSession):
                        Deepgram STT.
 
   7. POST /transcripts persists the debate per authenticated user in the
-       database (SQLite locally, Postgres in production). Input is fully
-       validated by Pydantic (schemas.SaveTranscriptRequest).
-       POST /save_transcript remains as a deprecated, auth-required alias.
+       JSON object store (AWS S3 in production, local storage in dev).
+       Input is fully validated by Pydantic (schemas.SaveTranscriptRequest).
 
 Hardening notes: all diagnostics go through the logging module; client-facing
 error messages are generic (details stay server-side); CORS origins come from
@@ -183,19 +182,6 @@ def _should_accept_turn(text: str, confidence: float | None) -> tuple[bool, str]
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
-
-
-@app.post("/save_transcript", deprecated=True)
-async def save_transcript(payload: SaveTranscriptRequest,
-                          user: dict = Depends(get_current_user)):
-    """Deprecated alias of POST /transcripts kept for old clients."""
-    try:
-        row = await persist_transcript(user, payload)
-        return JSONResponse({"status": "saved", "id": row["id"]})
-    except Exception:
-        logger.error("Save transcript failed", exc_info=True)
-        return JSONResponse({"status": "error", "message": "Internal server error"},
-                            status_code=500)
 
 
 @app.on_event("startup")

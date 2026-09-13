@@ -1,4 +1,4 @@
-"""Auth + transcript endpoint integration tests (throwaway SQLite)."""
+"""Auth + transcript endpoint integration tests (object store)."""
 
 VALID_SAVE = {
     "session_id": "sess-123",
@@ -87,13 +87,6 @@ async def test_save_transcript_rejects_path_traversal(client, auth_headers):
     bad = dict(VALID_SAVE, session_id="../etc/passwd")
     r = await client.post("/transcripts", json=bad, headers=auth_headers)
     assert r.status_code == 422
-
-
-async def test_save_transcript_deprecated_alias(client, auth_headers):
-    r = await client.post("/save_transcript", json=VALID_SAVE,
-                          headers=auth_headers)
-    assert r.status_code == 200
-    assert r.json()["status"] == "saved"
 
 
 async def test_healthz(client):

@@ -68,7 +68,8 @@ GOOGLE_MODEL=gemini-3.6-flash   # any Gemini model with function calling
 OPENAI_API_KEY=...              # fallback provider (used only if GOOGLE_API_KEY is absent)
 OPENAI_BASE_URL=...             # point the fallback at any OpenAI-compatible router
 OPENAI_MODEL=gpt-4o
-DATABASE_URL=...                # postgres://... in prod; defaults to local SQLite
+S3_BUCKET=debatemate-storage    # AWS S3 in prod; defaults to local ./storage/ in dev
+AWS_REGION=us-east-1
 JWT_SECRET=...                  # signs login tokens; set it in production!
 CORS_ORIGINS=https://your.app   # comma-separated; "*" by default (no credentials)
 LLM_TIMEOUT_S=30                # hard cap on a single LLM call
@@ -164,11 +165,14 @@ Key modules:
 
 | File | Role |
 |------|------|
-| `voice_server.py` | WebSocket orchestration: STT streaming, turn finalization, TTS relay, auth-gated WS, router mounting |
-| `main.py` | LangGraph brain: `DebateReply` structured schema, intent routing, prompts |
+| `voice_server.py` | FastAPI app: WebSocket orchestration (STT streaming, turn finalization, TTS relay), auth-gated WS, router mounting |
+| `main.py` | LangGraph brain: `DebateReply` structured schema, intent routing, debate & coaching prompts |
 | `auth.py` / `routes_auth.py` | bcrypt + JWT helpers; register/login/me endpoints |
-| `database.py` / `models.py` / `routes_transcripts.py` | Async SQLAlchemy engine, User/Transcript models, transcript CRUD |
-| `schemas.py` | Pydantic request validation (transcripts, auth) |
+| `storage.py` | Pluggable JSON object store: local `./storage/` for dev, AWS S3 in production |
+| `routes_transcripts.py` | Transcript persistence, list, get, and ownership isolation |
+| `schemas.py` | Pydantic request models (transcripts, auth) |
+| `rate_limit.py` | Slowapi rate limiting definitions |
+| `logging_config.py` | Structured logging configuration |
 | `frontend/src/hooks/useVoice.js` | Mic capture, WS protocol + reconnect, gapless PCM playback |
 | `frontend/src/hooks/useAuth.js` | Token storage, login/register/logout, authenticated fetch |
 | `frontend/src/App.jsx` | Auth gate, setup/debate/history views, transcript/notes state |

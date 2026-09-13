@@ -10,9 +10,6 @@ export default defineConfig({
                 target: 'ws://localhost:8000',
                 ws: true,
             },
-            '/save_transcript': {
-                target: 'http://localhost:8000',
-            },
             '/auth': {
                 target: 'http://localhost:8000',
             },
