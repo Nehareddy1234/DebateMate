@@ -920,8 +920,8 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         app,
-        host="0.0.0.0",                       # required for Render routing
-        port=int(os.getenv("PORT", "8000")),  # Render injects $PORT
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "7860")),
         log_level=os.getenv("LOG_LEVEL", "info").lower(),
         timeout_keep_alive=30,
         ws_max_size=2**20,                    # 1 MB inbound WS frame cap

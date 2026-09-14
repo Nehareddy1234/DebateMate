@@ -1,20 +1,22 @@
 FROM python:3.11-slim
 
-# Prevent Python from writing .pyc and enable unbuffered output
-ENV PYTHONDONTWRITEBYTECODE=1 \
+# Set up non-root user for Hugging Face Spaces (UID 1000)
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
-    PORT=8000
+    PORT=7860
 
-WORKDIR /app
+WORKDIR $HOME/app
 
 # Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --chown=user:user requirements.txt .
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Copy backend application code
-COPY . .
+# Copy application files (including built frontend in frontend/dist)
+COPY --chown=user:user . .
 
-EXPOSE 8000
+EXPOSE 7860
 
-# Start server
 CMD ["python", "voice_server.py"]
