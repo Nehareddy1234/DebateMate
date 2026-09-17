@@ -91,42 +91,43 @@ export default function AuthScreen({ onLogin, onRegister, onResetPassword, initi
     }
 
     return (
-        <div className="min-h-screen w-screen overflow-y-auto human-bg flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-sky-500/20">
-            {/* Back navigation */}
-            {onBack && (
-                <div className="w-full max-w-md mb-4 flex items-center justify-between">
-                    <button
-                        onClick={onBack}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors p-1"
-                    >
-                        <span>←</span>
-                        <span>Back to home</span>
-                    </button>
-                </div>
-            )}
+        <div className="h-screen w-full overflow-y-auto human-bg flex flex-col items-center px-4 py-8 sm:px-6 selection:bg-sky-500/20">
+            <div className="w-full max-w-md my-auto flex flex-col py-4">
+                {/* Back navigation */}
+                {onBack && (
+                    <div className="mb-4 flex items-center justify-between">
+                        <button
+                            onClick={onBack}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors p-1"
+                        >
+                            <span>←</span>
+                            <span>Back to home</span>
+                        </button>
+                    </div>
+                )}
 
-            {/* Header branding */}
-            <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-white/[0.1] text-sky-400 font-bold text-base mb-3 shadow-lg shadow-sky-500/5 ring-1 ring-white/[0.05]">
-                    D
+                {/* Header branding */}
+                <div className="text-center mb-6">
+                    <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-white/[0.1] text-sky-400 font-bold text-base mb-3 shadow-lg shadow-sky-500/5 ring-1 ring-white/[0.05]">
+                        D
+                    </div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-100">
+                        DebateMate
+                    </h1>
+                    <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                        {mode === 'reset'
+                            ? 'Reset your password with your registered email'
+                            : mode === 'register'
+                            ? 'Join DebateMate to track your rounds and coaching notes'
+                            : 'Sign in to access your sparring sessions and transcripts'}
+                    </p>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-100">
-                    DebateMate
-                </h1>
-                <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                    {mode === 'reset'
-                        ? 'Reset your password with your registered email'
-                        : mode === 'register'
-                        ? 'Join DebateMate to track your rounds and coaching notes'
-                        : 'Sign in to access your sparring sessions and transcripts'}
-                </p>
-            </div>
 
-            {/* Main Auth Card */}
-            <div className="w-full max-w-md human-panel p-6 sm:p-8 border border-white/[0.08] shadow-2xl relative">
-                {/* Mode Selector Tabs */}
-                {mode !== 'reset' ? (
-                    <div className="flex p-1 bg-slate-900/90 rounded-xl border border-white/[0.06] mb-6">
+                {/* Main Auth Card */}
+                <div className="w-full human-panel p-6 sm:p-8 border border-white/[0.08] shadow-2xl relative mb-6">
+                    {/* Mode Selector Tabs */}
+                    {mode !== 'reset' ? (
+                        <div className="flex p-1 bg-slate-900/90 rounded-xl border border-white/[0.06] mb-6">
                         <button
                             type="button"
                             onClick={() => setMode('login')}
@@ -451,5 +452,6 @@ export default function AuthScreen({ onLogin, onRegister, onResetPassword, initi
                 </div>
             </div>
         </div>
+    </div>
     )
 }

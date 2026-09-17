@@ -76,9 +76,9 @@ export default function ChangePasswordModal({ isOpen, onClose, onChangePassword 
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
             <div
-                className="w-full max-w-md human-panel p-6 sm:p-7 border border-white/[0.1] shadow-2xl relative"
+                className="w-full max-w-md my-auto human-panel p-6 sm:p-7 border border-white/[0.1] shadow-2xl relative"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="change-password-title"
