@@ -113,3 +113,78 @@ async def test_register_rate_limited(client):
     finally:
         app.state.limiter.enabled = False
         app.state.limiter.reset()
+
+
+async def test_reset_password_success(client):
+    await client.post("/auth/register", json={
+        "username": "david", "email": "david@example.com",
+        "password": "InitialPass123!"})
+
+    r = await client.post("/auth/reset-password", json={
+        "username": "david",
+        "email": "david@example.com",
+        "new_password": "NewSecretPass456!",
+    })
+    assert r.status_code == 200
+    token = r.json()["access_token"]
+    assert token
+
+    # Can now login with new password
+    r = await client.post("/auth/login", json={
+        "username": "david", "password": "NewSecretPass456!"})
+    assert r.status_code == 200
+
+    # Old password no longer works
+    r = await client.post("/auth/login", json={
+        "username": "david", "password": "InitialPass123!"})
+    assert r.status_code == 401
+
+
+async def test_reset_password_mismatched_email_or_user(client):
+    await client.post("/auth/register", json={
+        "username": "emma", "email": "emma@example.com",
+        "password": "InitialPass123!"})
+
+    # Wrong email
+    r = await client.post("/auth/reset-password", json={
+        "username": "emma",
+        "email": "wrong@example.com",
+        "new_password": "NewSecretPass456!",
+    })
+    assert r.status_code == 404
+
+    # Nonexistent user
+    r = await client.post("/auth/reset-password", json={
+        "username": "nonexistent",
+        "email": "emma@example.com",
+        "new_password": "NewSecretPass456!",
+    })
+    assert r.status_code == 404
+
+
+async def test_change_password_flow(client):
+    r = await client.post("/auth/register", json={
+        "username": "frank", "email": "frank@example.com",
+        "password": "OldPassword123!"})
+    token = r.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Incorrect old password
+    r = await client.post("/auth/change-password", headers=headers, json={
+        "old_password": "WrongOldPassword",
+        "new_password": "BrandNewPass999!",
+    })
+    assert r.status_code == 400
+
+    # Correct old password
+    r = await client.post("/auth/change-password", headers=headers, json={
+        "old_password": "OldPassword123!",
+        "new_password": "BrandNewPass999!",
+    })
+    assert r.status_code == 200
+
+    # Can login with new password
+    r = await client.post("/auth/login", json={
+        "username": "frank", "password": "BrandNewPass999!"})
+    assert r.status_code == 200
+

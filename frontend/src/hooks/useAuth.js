@@ -14,14 +14,15 @@ export function getToken() {
 }
 
 export function useAuth() {
+    const [token, setToken] = useState(() => getToken())
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
 
     // Fetch wrapper that injects the bearer token and logs the user out on 401
     const authFetch = useCallback(async (url, options = {}) => {
         const headers = { ...(options.headers || {}) }
-        const token = getToken()
-        if (token) headers['Authorization'] = `Bearer ${token}`
+        const currentToken = getToken()
+        if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`
         if (options.body && !headers['Content-Type']) {
             headers['Content-Type'] = 'application/json'
         }
@@ -29,26 +30,35 @@ export function useAuth() {
         const res = await fetch(fullUrl, { ...options, headers })
         if (res.status === 401) {
             localStorage.removeItem(TOKEN_KEY)
+            setToken(null)
             setUser(null)
         }
         return res
     }, [])
 
     useEffect(() => {
-        const token = getToken()
-        if (!token) {
+        const currentToken = getToken()
+        if (!currentToken) {
             setLoading(false)
             return
         }
-        fetch(formatUrl('/auth/me'), { headers: { Authorization: `Bearer ${token}` } })
+        fetch(formatUrl('/auth/me'), { headers: { Authorization: `Bearer ${currentToken}` } })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unauthorized'))))
-            .then(setUser)
-            .catch(() => localStorage.removeItem(TOKEN_KEY))
+            .then((userData) => {
+                setUser(userData)
+                setToken(currentToken)
+            })
+            .catch(() => {
+                localStorage.removeItem(TOKEN_KEY)
+                setToken(null)
+                setUser(null)
+            })
             .finally(() => setLoading(false))
     }, [])
 
     const _store = (data) => {
         localStorage.setItem(TOKEN_KEY, data.access_token)
+        setToken(data.access_token)
         setUser(data.user)
         return data.user
     }
@@ -61,7 +71,15 @@ export function useAuth() {
             body: JSON.stringify(body),
         })
         const data = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`)
+        if (!res.ok) {
+            let msg = data.detail
+            if (Array.isArray(data.detail)) {
+                msg = data.detail.map(d => d.msg || `${d.loc?.slice(-1)[0] || 'field'}: invalid`).join(', ')
+            } else if (typeof data.detail === 'object' && data.detail !== null) {
+                msg = JSON.stringify(data.detail)
+            }
+            throw new Error(msg || `Request failed (${res.status})`)
+        }
         return data
     }
 
@@ -73,11 +91,42 @@ export function useAuth() {
         return _store(await _post('/auth/login', { username, password }))
     }, [])
 
+    const resetPassword = useCallback(async (username, email, newPassword) => {
+        return _store(await _post('/auth/reset-password', {
+            username,
+            email,
+            new_password: newPassword,
+        }))
+    }, [])
+
+    const changePassword = useCallback(async (oldPassword, newPassword) => {
+        const res = await authFetch('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({
+                old_password: oldPassword,
+                new_password: newPassword,
+            }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+            let msg = data.detail
+            if (Array.isArray(data.detail)) {
+                msg = data.detail.map(d => d.msg || `${d.loc?.slice(-1)[0] || 'field'}: invalid`).join(', ')
+            } else if (typeof data.detail === 'object' && data.detail !== null) {
+                msg = JSON.stringify(data.detail)
+            }
+            throw new Error(msg || `Failed to change password (${res.status})`)
+        }
+        return data
+    }, [authFetch])
+
     const logout = useCallback(() => {
         localStorage.removeItem(TOKEN_KEY)
+        setToken(null)
         setUser(null)
     }, [])
 
-    return { user, loading, login, register, logout, authFetch }
+    return { token, user, loading, login, register, resetPassword, changePassword, logout, authFetch }
 }
+
 

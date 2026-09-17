@@ -10,6 +10,7 @@ import DebateNotes from './components/DebateNotes'
 import TranscriptOverlay from './components/TranscriptOverlay'
 import TranscriptPanel from './components/TranscriptPanel'
 import AuthScreen from './components/AuthScreen'
+import ChangePasswordModal from './components/ChangePasswordModal'
 import ErrorBoundary from './components/ErrorBoundary'
 import HistoryView from './components/HistoryView'
 import LandingPage from './components/LandingPage'
@@ -396,9 +397,11 @@ function DebateView({
 // ── Root App ──────────────────────────────────────────────────
 
 export default function App() {
-    const { token, user, login, register, logout, authFetch } = useAuth()
+    const { token, user, login, register, resetPassword, changePassword, logout, authFetch } = useAuth()
     const [phase, setPhase] = useState('landing')
     const [authMode, setAuthMode] = useState('login')
+    const [showChangePassword, setShowChangePassword] = useState(false)
+    const [showUserMenu, setShowUserMenu] = useState(false)
     const [debateConfig, setDebateConfig] = useState({
         topic: '',
         user_side: 'Pro',
@@ -469,12 +472,34 @@ export default function App() {
         }
     }, [fullTranscript, debateConfig, authFetch])
 
+    const handleLogin = useCallback(async (...args) => {
+        await login(...args)
+        setPhase('setup')
+    }, [login])
+
+    const handleRegister = useCallback(async (...args) => {
+        await register(...args)
+        setPhase('setup')
+    }, [register])
+
+    const handleResetPassword = useCallback(async (...args) => {
+        await resetPassword(...args)
+        setPhase('setup')
+    }, [resetPassword])
+
+    const handleLogout = useCallback(() => {
+        logout()
+        setShowUserMenu(false)
+        setPhase('landing')
+    }, [logout])
+
     if (!token) {
         if (phase === 'auth') {
             return (
                 <AuthScreen
-                    onLogin={login}
-                    onRegister={register}
+                    onLogin={handleLogin}
+                    onRegister={handleRegister}
+                    onResetPassword={handleResetPassword}
                     initialMode={authMode}
                     onBack={() => setPhase('landing')}
                 />
@@ -493,6 +518,8 @@ export default function App() {
             />
         )
     }
+
+    const userInitial = (user?.username?.[0] || 'U').toUpperCase()
 
     return (
         <ErrorBoundary>
@@ -518,43 +545,98 @@ export default function App() {
                     />
                 ) : (
                     <div className="h-full flex flex-col overflow-hidden">
-                        <nav className="h-13 px-5 sm:px-6 border-b border-white/[0.08] bg-slate-950/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-20">
+                        <nav className="h-14 px-5 sm:px-6 border-b border-white/[0.08] bg-slate-950/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-20">
                             <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 rounded-md bg-slate-900 border border-white/[0.08] flex items-center justify-center font-bold text-slate-200 text-xs">
+                                <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center font-bold text-sky-400 text-xs">
                                     D
                                 </div>
-                                <span className="font-semibold text-xs text-slate-200">DebateMate</span>
-                                <span className="text-slate-600">·</span>
-                                <span className="text-xs text-slate-400">
-                                    {user?.username}
-                                </span>
+                                <span className="font-bold text-sm text-slate-100 tracking-tight">DebateMate</span>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 <button
                                     onClick={() => setPhase(phase === 'setup' ? 'history' : 'setup')}
-                                    className="px-3 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-white/[0.08] transition-all"
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-white/[0.08] transition-all flex items-center gap-1.5"
                                 >
-                                    {phase === 'setup' ? '📚 Saved Debates' : '🎙️ New Round'}
+                                    <span>{phase === 'setup' ? '📚' : '🎙️'}</span>
+                                    <span>{phase === 'setup' ? 'Saved Debates' : 'New Round'}</span>
                                 </button>
-                                <button
-                                    onClick={logout}
-                                    className="px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-400 transition-colors"
-                                >
-                                    Sign out
-                                </button>
+
+                                {/* User Menu Button */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowUserMenu(!showUserMenu)}
+                                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-white/[0.08] text-xs transition-all focus:outline-none focus:ring-1 focus:ring-sky-500/40"
+                                        aria-expanded={showUserMenu}
+                                        aria-label="User profile menu"
+                                    >
+                                        <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-bold text-[10px] flex items-center justify-center">
+                                            {userInitial}
+                                        </div>
+                                        <span className="font-medium text-slate-200 hidden sm:inline max-w-[120px] truncate">
+                                            {user?.username}
+                                        </span>
+                                        <span className="text-slate-500 text-[9px]">▼</span>
+                                    </button>
+
+                                    {/* Dropdown Menu */}
+                                    {showUserMenu && (
+                                        <>
+                                            <div
+                                                className="fixed inset-0 z-30"
+                                                onClick={() => setShowUserMenu(false)}
+                                            />
+                                            <div className="absolute right-0 mt-2 w-56 rounded-2xl human-panel p-2 border border-white/[0.1] shadow-2xl z-40 animate-fadeIn">
+                                                <div className="px-3 py-2.5 border-b border-white/[0.06] mb-1">
+                                                    <p className="text-xs font-semibold text-slate-100 truncate">
+                                                        {user?.username}
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                                        {user?.email}
+                                                    </p>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => {
+                                                        setShowUserMenu(false)
+                                                        setShowChangePassword(true)
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors flex items-center gap-2"
+                                                >
+                                                    <span>🔒</span>
+                                                    <span>Change Password</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={handleLogout}
+                                                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2 mt-0.5"
+                                                >
+                                                    <span>🚪</span>
+                                                    <span>Sign Out</span>
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </nav>
 
                         <div className="flex-1 overflow-y-auto">
-                            {phase === 'setup' ? (
-                                <SetupScreen onStart={handleStart} />
-                            ) : (
+                            {phase === 'history' ? (
                                 <HistoryView authFetch={authFetch} onBack={() => setPhase('setup')} />
+                            ) : (
+                                <SetupScreen onStart={handleStart} />
                             )}
                         </div>
                     </div>
                 )}
+
+                {/* Change Password Modal */}
+                <ChangePasswordModal
+                    isOpen={showChangePassword}
+                    onClose={() => setShowChangePassword(false)}
+                    onChangePassword={changePassword}
+                />
             </div>
         </ErrorBoundary>
     )

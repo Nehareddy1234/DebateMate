@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from auth import (create_access_token, get_current_user, hash_password,
                   user_payload, verify_password)
 from rate_limit import limiter
-from schemas import LoginRequest, RegisterRequest
+from schemas import (ChangePasswordRequest, LoginRequest, RegisterRequest,
+                     ResetPasswordRequest)
 from storage import store
 
 router = APIRouter()
@@ -62,6 +63,36 @@ async def login(body: LoginRequest, request: Request):
             "user": user_payload(user)}
 
 
+@router.post("/reset-password")
+@limiter.limit("5/minute")
+async def reset_password(body: ResetPasswordRequest, request: Request):
+    username_key = body.username.strip().lower()
+    user = await store.get(f"users/{username_key}.json")
+    if not user or user.get("email", "").strip().lower() != body.email.strip().lower():
+        raise HTTPException(status.HTTP_404_NOT_FOUND,
+                            "Username and email combination not found")
+
+    user["password_hash"] = hash_password(body.new_password)
+    await store.put(f"users/{username_key}.json", user)
+    return {
+        "message": "Password successfully reset",
+        "access_token": create_access_token(user["id"], user["username"]),
+        "user": user_payload(user),
+    }
+
+
+@router.post("/change-password")
+async def change_password(body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
+    if not verify_password(body.old_password, user["password_hash"]):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "Current password is incorrect")
+    username_key = user["username"].lower()
+    user["password_hash"] = hash_password(body.new_password)
+    await store.put(f"users/{username_key}.json", user)
+    return {"message": "Password successfully updated"}
+
+
 @router.get("/me")
 async def me(user: dict = Depends(get_current_user)):
     return {**user_payload(user), "created_at": user["created_at"]}
+

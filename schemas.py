@@ -32,3 +32,17 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=255)
     password: str = Field(min_length=1, max_length=128)
+
+
+class ResetPasswordRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64,
+                          pattern=r"^[A-Za-z0-9_.-]+$")
+    email: str = Field(min_length=5, max_length=255,
+                       pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
