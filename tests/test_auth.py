@@ -77,6 +77,16 @@ async def test_transcript_crud_and_ownership(client, auth_headers):
     assert (await client.get(f"/transcripts/{tid}",
                              headers=other)).status_code == 404
 
+    # Owner can delete it
+    r = await client.delete(f"/transcripts/{tid}", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["status"] == "deleted"
+
+    # Now it's gone
+    assert (await client.get(f"/transcripts/{tid}",
+                             headers=auth_headers)).status_code == 404
+
+
 
 async def test_transcript_requires_auth(client):
     assert (await client.post("/transcripts",

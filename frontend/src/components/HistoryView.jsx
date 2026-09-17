@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 export default function HistoryView({ authFetch, onBack }) {
     const [items, setItems] = useState(null)
@@ -7,15 +7,20 @@ export default function HistoryView({ authFetch, onBack }) {
     const [detail, setDetail] = useState(null)
     const [detailLoading, setDetailLoading] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [deletingId, setDeletingId] = useState(null)
 
-    useEffect(() => {
-        let alive = true
+    const loadTranscripts = useCallback(() => {
+        if (!authFetch) return
+        setError(null)
         authFetch('/transcripts')
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-            .then((data) => alive && setItems(data.transcripts))
-            .catch((e) => alive && setError(e.message))
-        return () => { alive = false }
+            .then((data) => setItems(data.transcripts || []))
+            .catch((e) => setError(e.message))
     }, [authFetch])
+
+    useEffect(() => {
+        loadTranscripts()
+    }, [loadTranscripts])
 
     const toggle = async (id) => {
         if (openId === id) {
@@ -31,6 +36,26 @@ export default function HistoryView({ authFetch, onBack }) {
             if (r.ok) setDetail(await r.json())
         } finally {
             setDetailLoading(false)
+        }
+    }
+
+    const handleDelete = async (id, e) => {
+        e?.stopPropagation()
+        if (!window.confirm('Are you sure you want to delete this debate transcript?')) return
+        setDeletingId(id)
+        try {
+            const r = await authFetch(`/transcripts/${id}`, { method: 'DELETE' })
+            if (r.ok) {
+                setItems((prev) => (prev || []).filter((it) => it.id !== id))
+                if (openId === id) {
+                    setOpenId(null)
+                    setDetail(null)
+                }
+            }
+        } catch (err) {
+            console.error('[History] Delete failed:', err)
+        } finally {
+            setDeletingId(null)
         }
     }
 
@@ -63,16 +88,25 @@ export default function HistoryView({ authFetch, onBack }) {
                             Saved Debate Sessions
                         </h1>
                         <p className="text-xs text-slate-400 mt-1">
-                            Review your arguments, timestamps, and coach suggestions.
+                            Review your past debates, speech timestamps, and argument records.
                         </p>
                     </div>
 
-                    <button
-                        onClick={onBack}
-                        className="self-start sm:self-auto px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white hover:bg-slate-200 transition-all shadow-sm"
-                    >
-                        + New Debate
-                    </button>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <button
+                            onClick={loadTranscripts}
+                            title="Refresh sessions"
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800 border border-white/[0.08] transition-all"
+                        >
+                            🔄 Refresh
+                        </button>
+                        <button
+                            onClick={onBack}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white hover:bg-slate-200 transition-all shadow-sm"
+                        >
+                            + New Debate
+                        </button>
+                    </div>
                 </div>
 
                 {/* Search Bar */}
@@ -106,13 +140,13 @@ export default function HistoryView({ authFetch, onBack }) {
                     <div className="human-panel p-10 text-center text-slate-400 text-xs flex flex-col items-center gap-2 border border-white/[0.08]">
                         <p className="font-semibold text-slate-200 text-sm">No saved sessions yet</p>
                         <p className="max-w-xs text-slate-400">
-                            Finish a debate round and click "Save" to keep a record here.
+                            Complete a debate round and it will be recorded and saved here automatically.
                         </p>
                         <button
                             onClick={onBack}
                             className="mt-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-white hover:bg-slate-200"
                         >
-                            Start a session
+                            Start a round
                         </button>
                     </div>
                 )}
@@ -128,21 +162,29 @@ export default function HistoryView({ authFetch, onBack }) {
                                     isOpen ? 'border-white/[0.2] bg-slate-850' : 'border-white/[0.08]'
                                 }`}
                             >
-                                <button
+                                <div
                                     onClick={() => toggle(t.id)}
-                                    aria-expanded={isOpen}
-                                    className="w-full p-4 text-left flex items-start sm:items-center justify-between gap-4 cursor-pointer"
+                                    className="w-full p-4 text-left flex items-start sm:items-center justify-between gap-4 cursor-pointer select-none"
                                 >
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                                             <span className="badge-clean-neutral text-[10px] font-medium px-2 py-0.5 rounded">
                                                 {t.total_turns || 0} turns
                                             </span>
+                                            {t.user_side && (
+                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                                                    t.user_side === 'Pro' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                                                }`}>
+                                                    Side: {t.user_side}
+                                                </span>
+                                            )}
                                             <span className="text-[11px] text-slate-500 font-mono">
                                                 {new Date(t.saved_at).toLocaleDateString(undefined, {
                                                     month: 'short',
                                                     day: 'numeric',
                                                     year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
                                                 })}
                                             </span>
                                         </div>
@@ -151,10 +193,20 @@ export default function HistoryView({ authFetch, onBack }) {
                                         </h3>
                                     </div>
 
-                                    <div className="text-xs text-slate-400">
-                                        {isOpen ? '▲' : '▼'}
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={(e) => handleDelete(t.id, e)}
+                                            disabled={deletingId === t.id}
+                                            title="Delete debate"
+                                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors text-xs"
+                                        >
+                                            🗑️
+                                        </button>
+                                        <div className="text-xs text-slate-400">
+                                            {isOpen ? '▲' : '▼'}
+                                        </div>
                                     </div>
-                                </button>
+                                </div>
 
                                 {isOpen && (
                                     <div className="border-t border-white/[0.06] bg-slate-900/90 p-4 sm:p-5">
@@ -169,15 +221,17 @@ export default function HistoryView({ authFetch, onBack }) {
                                             <div>
                                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/[0.06]">
                                                     <span className="text-xs font-semibold text-slate-300">
-                                                        Transcript Record
+                                                        Transcript Record ({detail.transcript?.length || 0} turns)
                                                     </span>
-                                                    <button
-                                                        onClick={() => downloadTranscript(detail)}
-                                                        className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-white/[0.08] transition-all flex items-center gap-1"
-                                                    >
-                                                        <span>📥</span>
-                                                        <span>Download .txt</span>
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => downloadTranscript(detail)}
+                                                            className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-white/[0.08] transition-all flex items-center gap-1"
+                                                        >
+                                                            <span>📥</span>
+                                                            <span>Download .txt</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">

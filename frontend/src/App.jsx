@@ -412,6 +412,7 @@ export default function App() {
 
     const {
         connected,
+        sessionId,
         micActive,
         isUserSpeaking,
         isAiSpeaking,
@@ -434,15 +435,37 @@ export default function App() {
         startDebate(config)
     }, [startDebate])
 
-    const handleEnd = useCallback(() => {
+    const handleEnd = useCallback(async () => {
+        const lines = fullTranscript.filter(l => !l.isPartial)
+        if (lines.length > 0 && authFetch) {
+            try {
+                const sId = sessionId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sess_${Date.now()}`)
+                await authFetch('/transcripts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sId,
+                        topic: debateConfig.topic || 'General Debate',
+                        user_side: debateConfig.user_side || 'Pro',
+                        started_at: startedAtRef.current || new Date().toISOString(),
+                        transcript: lines.map(l => ({
+                            speaker: l.speaker,
+                            text: l.text,
+                            timestamp: l.timestamp ? new Date(l.timestamp).toISOString() : new Date().toISOString(),
+                        })),
+                    }),
+                })
+            } catch (err) {
+                console.warn('[EndDebate] Auto-save failed:', err)
+            }
+        }
         endDebate()
-        setPhase('setup')
-    }, [endDebate])
+        setPhase('history')
+    }, [fullTranscript, authFetch, sessionId, debateConfig, endDebate])
 
     const handleSave = useCallback(() => {
-        const lines = fullTranscript
+        const lines = fullTranscript.filter(l => !l.isPartial)
         const text = lines
-            .filter(l => !l.isPartial)
             .map(l => `[${l.speaker.toUpperCase()}] ${l.text}`)
             .join('\n\n')
 
@@ -454,23 +477,25 @@ export default function App() {
         a.click()
         URL.revokeObjectURL(url)
 
-        if (authFetch) {
+        if (authFetch && lines.length > 0) {
+            const sId = sessionId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sess_${Date.now()}`)
             authFetch('/transcripts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    topic: debateConfig.topic,
-                    user_side: debateConfig.user_side,
-                    started_at: startedAtRef.current,
-                    transcript: lines.filter(l => !l.isPartial).map(l => ({
+                    session_id: sId,
+                    topic: debateConfig.topic || 'General Debate',
+                    user_side: debateConfig.user_side || 'Pro',
+                    started_at: startedAtRef.current || new Date().toISOString(),
+                    transcript: lines.map(l => ({
                         speaker: l.speaker,
                         text: l.text,
-                        timestamp: new Date(l.timestamp).toISOString(),
+                        timestamp: l.timestamp ? new Date(l.timestamp).toISOString() : new Date().toISOString(),
                     })),
                 }),
             }).catch(err => console.warn('[Save] Server save failed:', err))
         }
-    }, [fullTranscript, debateConfig, authFetch])
+    }, [fullTranscript, debateConfig, authFetch, sessionId])
 
     const handleLogin = useCallback(async (...args) => {
         await login(...args)

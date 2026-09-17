@@ -74,3 +74,17 @@ async def get_transcript(transcript_id: str,
     if record is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Transcript not found")
     return record
+
+
+@router.delete("/{transcript_id}")
+async def delete_transcript(transcript_id: str,
+                            user: dict = Depends(get_current_user)):
+    if not _ID_RE.match(transcript_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transcript not found")
+    key = f"transcripts/{user['id']}/{transcript_id}.json"
+    record = await store.get(key)
+    if record is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Transcript not found")
+    await store.delete(key)
+    return {"status": "deleted", "id": transcript_id}
+

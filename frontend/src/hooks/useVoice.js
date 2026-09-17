@@ -58,6 +58,7 @@ export function useVoice({ token, onMessage } = {}) {
 
     // Voice & Debate States
     const [connected, setConnected] = useState(false)
+    const [sessionId, setSessionId] = useState(null)
     const [micActive, setMicActive] = useState(false)
     const [isUserSpeaking, setIsUserSpeaking] = useState(false)
     const [isAiSpeaking, setIsAiSpeaking] = useState(false)
@@ -296,6 +297,13 @@ export function useVoice({ token, onMessage } = {}) {
                 const msg = JSON.parse(event.data)
 
                 switch (msg.type) {
+                    case 'ready':
+                    case 'setup_ack':
+                        if (msg.session_id) {
+                            setSessionId(msg.session_id)
+                        }
+                        break
+
                     case 'ai_thinking_start':
                         setIsAiThinking(true)
                         break
@@ -485,6 +493,7 @@ export function useVoice({ token, onMessage } = {}) {
     return {
         // High-level API expected by App.jsx
         connected,
+        sessionId,
         micActive,
         isUserSpeaking,
         isAiSpeaking,
