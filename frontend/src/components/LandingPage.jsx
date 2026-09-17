@@ -47,7 +47,7 @@ const steps = [
 
 export default function LandingPage({ onGetStarted, onLogin }) {
     return (
-        <div className="h-screen overflow-y-auto human-bg text-slate-200 flex flex-col justify-between selection:bg-sky-500/20">
+        <div className="min-h-screen w-full human-bg text-slate-200 flex flex-col justify-between selection:bg-sky-500/20">
             {/* ── Minimalist Top Navigation ── */}
             <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/70 border-b border-white/[0.06]">
                 <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">

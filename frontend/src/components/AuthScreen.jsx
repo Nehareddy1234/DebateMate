@@ -91,7 +91,7 @@ export default function AuthScreen({ onLogin, onRegister, onResetPassword, initi
     }
 
     return (
-        <div className="h-screen w-full overflow-y-auto human-bg flex flex-col items-center px-4 py-8 sm:px-6 selection:bg-sky-500/20">
+        <div className="min-h-screen w-full human-bg flex flex-col items-center justify-center py-10 px-4 sm:px-6 selection:bg-sky-500/20">
             <div className="w-full max-w-md my-auto flex flex-col py-4">
                 {/* Back navigation */}
                 {onBack && (
@@ -107,8 +107,8 @@ export default function AuthScreen({ onLogin, onRegister, onResetPassword, initi
                 )}
 
                 {/* Header branding */}
-                <div className="text-center mb-6">
-                    <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-white/[0.1] text-sky-400 font-bold text-base mb-3 shadow-lg shadow-sky-500/5 ring-1 ring-white/[0.05]">
+                <div className="text-center mb-5">
+                    <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-white/[0.1] text-sky-400 font-bold text-base mb-2.5 shadow-lg shadow-sky-500/5 ring-1 ring-white/[0.05]">
                         D
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-100">
@@ -124,10 +124,10 @@ export default function AuthScreen({ onLogin, onRegister, onResetPassword, initi
                 </div>
 
                 {/* Main Auth Card */}
-                <div className="w-full human-panel p-6 sm:p-8 border border-white/[0.08] shadow-2xl relative mb-6">
+                <div className="w-full human-panel p-6 sm:p-7 border border-white/[0.08] shadow-2xl relative mb-12">
                     {/* Mode Selector Tabs */}
                     {mode !== 'reset' ? (
-                        <div className="flex p-1 bg-slate-900/90 rounded-xl border border-white/[0.06] mb-6">
+                        <div className="flex p-1 bg-slate-900/90 rounded-xl border border-white/[0.06] mb-5">
                         <button
                             type="button"
                             onClick={() => setMode('login')}
